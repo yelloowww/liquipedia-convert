@@ -1,0 +1,244 @@
+  <form action="/convert/result" method="get">
+
+    <div class="main-details">
+      <label class="input-label">Wiki</label>
+      <div>
+        <select id="convert-wiki" name="wiki">
+          <option value="starcraft" {% if wiki == "starcraft" %}selected{% endif %}>Brood War (starcraft)</option>
+          <option value="starcraft2" {% if wiki == "starcraft2" %}selected{% endif %}>StarCraft II (starcraft2)</option>
+        </select>
+      </div>
+
+      <label class="input-label">Page title</label>
+      <div>
+        <input type="text" id="convert-title" name="title" size="80" value="{{title}}" placeholder="Page title" />
+        <button type="button" class="decrement-number" title="Decrement number after the last /"># -</button>
+        <button type="button" class="increment-number" title="Increment number after the last /"># +</button>
+      </div>
+    </div>
+
+    <details {% if open %}open{% endif %}>
+      <summary>Options</summary>
+
+      <div class="options">
+        <fieldset>
+          <legend>Cache</legend>
+          <div>
+            <input type="checkbox" name="ignore_cache" id="ignore_cache" {% if options['ignore_cache'] %}checked{% endif %}/>
+            <label for="ignore_cache">Ignore cache (get the wikitext through the API)</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Prize pool table</legend>
+          <div>
+            <input type="checkbox" name="prize_pool_table_do_not_convert" id="prize_pool_table_do_not_convert" {% if options['prize_pool_table_do_not_convert'] %}checked{% endif %}/>
+            <label for="prize_pool_table_do_not_convert">Do not convert prize pool tables</label>
+          </div>
+          <div>
+            <input type="radio" name="import_limit" id="import_limit_none" value="none"{% if options['import_limit'] == 'none' or not options['import_limit'] %}checked{% endif %}/>
+            <label for="import_limit_none">Do not set an import limit</label>
+          </div>
+          <div>
+            <input type="radio" name="import_limit" id="import_limit_guess" value="guess"{% if options['import_limit'] == 'guess' %}checked{% endif %}/>
+            <label for="import_limit_guess">Guess import limit from the prize pool slots</label>
+          </div>
+          <div>
+            <input type="radio" name="import_limit" id="import_limit_fixed" value="fixed"{% if options['import_limit'] == 'fixed' %}checked{% endif %}/>
+            <label for="import_limit_fixed">Use fixed import limit:</label>
+            <input type="text" size="3" name="import_limit_fixed_val" value="{{options['import_limit_fixed_val']}}" />
+          </div>
+          <div>
+            <input type="checkbox" name="prize_pool_opponent_details" id="prize_pool_opponent_details" {% if options['prize_pool_opponent_details'] %}checked{% endif %}/>
+            <label for="prize_pool_opponent_details">Add opponent (player or team) details in the prize pool slots</label>
+          </div>
+          <div>
+            <input type="checkbox" name="prize_pool_opponent_last_results" id="prize_pool_opponent_last_results" {% if options['prize_pool_opponent_last_results'] %}checked{% endif %}/>
+            <label for="prize_pool_opponent_last_results">Add opponent (player or team) last results in the prize pool slots</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Participant table</legend>
+          <div>
+            <input type="checkbox" name="participant_table_do_not_convert" id="participant_table_do_not_convert" {% if options['participant_table_do_not_convert'] %}checked{% endif %}/>
+            <label for="participant_table_do_not_convert">Do not convert participant tables</label>
+          </div>
+          <div>
+            <input type="checkbox" name="participant_table_do_not_convert" id="participant_table_do_not_convert" {% if options['participant_table_do_not_convert'] %}checked{% endif %}/>
+            <label for="participant_table_do_not_convert_first">Do not convert the first participant table</label>
+          </div>
+          <div>
+            <input type="checkbox" name="player_details" id="player_details" {% if options['player_details'] %}checked{% endif %}/>
+            <label for="player_details">Player details (flag and race) in the participant tables</label>
+          </div>
+          <div>
+            <input type="checkbox" name="team_details" id="team_details" {% if options['team_details'] %}checked{% endif %}/>
+            <label for="team_details">Team details in the participant tables</label>
+          </div>
+          <div>
+            <input type="checkbox" name="participant_table_convert_first_to_qualified_prize_pool_table" id="participant_table_convert_first_to_qualified_prize_pool_table" {% if options['participant_table_convert_first_to_qualified_prize_pool_table'] %}checked{% endif %}/>
+            <label for="participant_table_convert_first_to_qualified_prize_pool_table">Convert first participant table to a "Qualified" prize pool table</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Brackets</legend>
+          <div>
+            <label>Match width:</label>
+            <input type="text" size="3" name="bracket_match_width" value="{{options['bracket_match_width']}}" />
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_do_not_convert_details" id="bracket_do_not_convert_details"{% if options['bracket_do_not_convert_details'] %}checked{% endif %}/>
+            <label for="bracket_do_not_convert_details">Do not convert bracket details ("RxGydetails")</label>
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_guess_bestof" id="bracket_guess_bestof"{% if options['bracket_guess_bestof'] %}checked{% endif %}/>
+            <label for="bracket_guess_bestof">Add bestof parameter (guessed from the score of the winner)</label>
+          </div>
+          <div>
+            <input type="radio" name="bracket_details" id="bracket_details_remove_if_stored" value="remove_if_stored"{% if options['bracket_details'] == 'remove_if_stored' or not options['bracket_details'] %}checked{% endif %}/>
+            <label for="bracket_details_remove_if_stored">Remove flag and race details if player info is stored before</label>
+          </div>
+          <div>
+            <input type="radio" name="bracket_details" id="bracket_details_keep" value="keep"{% if options['bracket_details'] == 'keep' %}checked{% endif %}/>
+            <label for="bracket_details_keep">Keep flag and race details (even if player info is stored before)</label>
+          </div>
+          <div>
+            <input type="radio" name="bracket_details" id="bracket_details_remove_always" value="remove_always"{% if options['bracket_details'] == 'remove_always' %}checked{% endif %}/>
+            <label for="bracket_details_remove_always">Remove flag and race details always</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Match list / Match maps</legend>
+          <div>
+            <input type="checkbox" name="match_maps_guess_bestof" id="match_maps_guess_bestof"{% if options['match_maps_guess_bestof'] %}checked{% endif %}/>
+            <label for="match_maps_guess_bestof">Add bestof parameter (guessed from the score of the winner)</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Bracket + Team matches (deprecated)</legend>
+          <div>
+            <input type="checkbox" name="bracket_override_with_team_match" id="bracket_override_with_team_match"{% if options['bracket_override_with_team_match'] %}checked{% endif %}/>
+            <label for="bracket_override_with_team_match">Override bracket matches with team matches</label>
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_do_not_move_team_match" id="bracket_do_not_move_team_match"{% if options['bracket_do_not_move_team_match'] %}checked{% endif %}/>
+            <label for="bracket_do_not_move_team_match">Do not move team matches to brackets</label>
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_do_not_move_no_map_team_match" id="bracket_do_not_move_no_map_team_match"{% if options['bracket_do_not_move_no_map_team_match'] %}checked{% endif %}/>
+            <label for="bracket_do_not_move_no_map_team_match">Do not move team matches with no set map name to brackets</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Team matches (deprecated)</legend>
+          <div>
+            <input type="checkbox" name="team_match_add_player_lists" id="team_match_add_player_lists"{% if options['team_match_add_player_lists'] %}checked{% endif %}/>
+            <label for="team_match_add_player_lists">Add player lists to TeamOpponent templates (parameter "players")</label>
+          </div>
+          <div>
+            <input type="checkbox" name="team_match_plus_for_archon" id="team_match_plus_for_archon"{% if options['team_match_plus_for_archon'] %}checked{% endif %}/>
+            <label for="team_match_plus_for_archon">Treat player "<code>A + B</code>" as an archon</label>
+          </div>
+          <div>
+            <input type="checkbox" name="team_match_br_for_2v2" id="team_match_br_for_2v2"{% if options['team_match_br_for_2v2'] %}checked{% endif %}/>
+            <label for="team_match_br_for_2v2">Treat player "<code>{% raw %}A {{SC2-X}} {{Flag/xx}}&lt;br/&gt;B {{SC2-X}} {{Flag/xx}}</code>{% endraw %}" or mirrored as a 2v2 team</label>
+          </div>
+          <div>
+            <input type="checkbox" name="team_match_make_duos_archons" id="team_match_make_duos_archons"{% if options['team_match_make_duos_archons'] %}checked{% endif %}/>
+            <label for="team_match_make_duos_archons">Make duos archons</label>
+          </div>
+          <div>
+            <label>Group into a match list the team matches of section:</label>
+            <input type="text" size="40" name="group_team_matches_of_section" value="{{options['group_team_matches_of_section']}}" />
+          </div>
+          <div>
+            <input type="radio" name="group_team_matches_mode" id="group_team_matches_mode_single" value="single"{% if options['group_team_matches_mode'] == "single" %}checked{% endif %}/>
+            <label for="group_team_matches_mode_single">Group in a single Matchlist</label>
+          </div>
+          <div>
+            <input type="radio" name="group_team_matches_mode" id="group_team_matches_mode_multiple" value="multiple"{% if options['group_team_matches_mode'] == "multiple" %}checked{% endif %}/>
+            <label for="group_team_matches_mode_multiple">Group in multiple Matchlists (one per child section)</label>
+          </div>
+          <div>
+            <label>Width of matchlists (for grouped team matches):</label>
+            <input type="text" size="5" name="group_team_matches_width" value="{{options['group_team_matches_width']}}" />
+          </div>
+          <div>
+            <input type="checkbox" name="group_team_matches_uncollapsed" id="group_team_matches_uncollapsed"{% if options['group_team_matches_uncollapsed'] %}checked{% endif %}/>
+            <label for="group_team_matches_uncollapsed">Set collapsed to false (for grouped team matches)</label>
+          </div>
+          <div>
+            <input type="checkbox" name="team_match_enable_dateheader" id="team_match_enable_dateheader"{% if options['team_match_enable_dateheader'] %}checked{% endif %}/>
+            <label for="team_match_enable_dateheader">Set dateheader to true</label>
+          </div>
+          <div>
+            <div><label>Player aliases:</label></div>
+            <div><textarea rows="5" cols="60" name="team_match_player_aliases">{{options['team_match_player_aliases']}}</textarea></div>
+          </div>
+          <div>
+            <div><label>Team aliases:</label></div>
+            <div><textarea rows="5" cols="60" name="team_aliases">{{options['team_aliases']}}</textarea></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>External cup list</legend>
+          <div>
+            <input type="checkbox" name="external_cup_list_convert" id="external_cup_list_convert"{% if options['external_cup_list_convert'] %}checked{% endif %}/>
+            <label for="external_cup_list_convert">Convert external cup list</label>
+          </div>
+        </fieldset>
+
+        <!--
+        <fieldset>
+          <legend>Match summaries (deprecated)</legend>
+          <div>
+            <input type="checkbox" name="bracket_override_with_match_summary" id="bracket_override_with_match_summary"{% if options['bracket_override_with_match_summary'] %}checked{% endif %}/>
+            <label for="bracket_override_with_match_summary">Override bracket match summaries with match summaries</label>
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_do_not_move_match_summary" id="bracket_do_not_move_match_summary"{% if options['bracket_do_not_move_match_summary'] %}checked{% endif %}/>
+            <label for="bracket_do_not_move_match_summary">Do not move match summaries to brackets</label>
+          </div>
+          <div>
+            <input type="checkbox" name="bracket_do_not_move_no_map_match_summary" id="bracket_do_not_move_no_map_match_summary"{% if options['bracket_do_not_move_no_map_match_summary'] %}checked{% endif %}/>
+            <label for="bracket_do_not_move_no_map_match_summary">Do not move match summaries with no set map name to brackets</label>
+          </div>
+          <div>
+            <label>Group into a match list the match summaries of section:</label>
+            <input type="text" size="40" name="group_matches_of_section" value="{{options['group_matches_of_section']}}" />
+          </div>
+        </fieldset>
+        -->
+
+        <fieldset>
+          <legend>Very old matches (deprecated)</legend>
+          <div>
+            <input type="checkbox" name="convert_very_old_team_matches" id="convert_very_old_team_matches"{% if options['convert_very_old_team_matches'] %}checked{% endif %}/>
+            <label for="convert_very_old_team_matches">Convert very old team matches</label>
+          </div>
+          <div>
+            <input type="checkbox" name="convert_very_old_player_matches_v1" id="convert_very_old_player_matches_v1"{% if options['convert_very_old_player_matches_v1'] %}checked{% endif %}/>
+            <label for="convert_very_old_player_matches_v1">Convert very old player matches (v1)</label>
+          </div>
+          <div>
+            <label>(For player matches v1 only) Group into a match list the match summaries of section:</label>
+            <input type="text" size="40" name="group_matches_of_section" value="{{options['group_matches_of_section']}}" />
+          </div>
+          <div>
+            <input type="checkbox" name="convert_very_old_player_matches_v2" id="convert_very_old_player_matches_v2"{% if options['convert_very_old_player_matches_v2'] %}checked{% endif %}/>
+            <label for="convert_very_old_player_matches_v2">Convert very old player matches (v2)</label>
+          </div>
+        </fieldset>
+      </div>
+    </details>
+
+    <div>
+      <button type="submit">Convert</button>
+    </div>
+  </form>

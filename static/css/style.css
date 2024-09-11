@@ -1,0 +1,107 @@
+:root {
+    font-family: "Open Sans", sans-serif;
+}
+
+input,
+select,
+button {
+    font-family: "Open Sans", sans-serif;
+}
+
+body {
+    margin-inline: auto;
+    max-width: 180ch;
+    background: #e0e0e0;
+    padding: 0.25em 1em;
+    color: #222222;
+}
+
+a {
+    color: #0d61a4;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+table td,
+table th {
+    border: 1px solid silver;
+    padding: 0.5em;
+}
+
+table th {
+    background: #e0e0e0;
+}
+
+table td {
+    background: #fff;
+}
+
+table tr.odd td {
+    background: #f0f0f0;
+}
+
+legend {
+    font-weight: bold;
+}
+
+details {
+    margin: 1em 0;
+}
+
+details>summary {
+    padding: 0.5em;
+    border-radius: 0.2em;
+    background: rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+details>summary:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+details>form {
+    padding: 0.5em;
+}
+
+fieldset {
+    background: #e4e4e4;
+    border-color: #e8e8e8;
+    border-radius: 4px;
+}
+
+.main-details {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+}
+
+.input-label {
+    font-weight: bold;
+    text-align: end;
+}
+
+.options {
+    display: grid;
+    padding-block-start: 0.5em;
+    grid-template-columns: 1fr;
+    gap: 1em 1em;
+}
+
+@media (min-width: 1200px) {
+    .options {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+button[type="submit"] {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-block-end: 0.5em;
+}

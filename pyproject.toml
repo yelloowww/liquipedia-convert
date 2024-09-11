@@ -1,0 +1,16 @@
+[project]
+name = "liquipedia-convert"
+version = "0.1.0"
+description = "Converter of Liquipedia tournament pages"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bottle>=0.13.1",
+    "gevent>=24.2.1",
+    "jinja2>=3.1.4",
+    "requests>=2.32.3",
+    "wikitextparser>=0.56.2",
+]
+
+[tool.black]
+line-length = 119

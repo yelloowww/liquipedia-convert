@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/static/images/favicon.png">
+  <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+  <!--<script type="text/javascript" src="/static/js/script.js"></script>-->
+  <title>Team card conversion</title>
+</head>
+
+<body>
+  {%- include 'templates/header.html' %}
+
+  <h2>Team card conversion</h2>
+
+  <form action="/team_card_conversion" method="post">
+    <div>
+      <label>Original:</label>
+    </div>
+    <div>
+      <textarea rows="30" cols="130" name="original">{{original}}</textarea>
+    </div>
+    <div>
+      <button type="submit">Submit</button>
+    </div>
+  </form>
+  <div>
+    <label>Converted:</label>
+  </div>
+  <div>
+    <textarea rows="50" cols="130">{{converted}}</textarea>
+  </div>
+</body>
+
+</html>

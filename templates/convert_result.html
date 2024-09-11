@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/static/images/favicon.png">
+  <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+  <script type="text/javascript" src="/static/js/script.js"></script>
+  <title>Convert - {{title}}</title>
+</head>
+
+<body>
+  {%- include 'templates/header.html' %}
+
+  <h2>{{title}}</h2>
+
+  <div><img src="/static/images/lp.png" width="21" height="15" alt="Liquipedia"> <a href="https://liquipedia.net/{{wiki}}/{{title}}" target="_blank">Liquipedia page</a> &bull; <a href="https://liquipedia.net/{{wiki}}/{{title}}?action=edit" target="_blank">edit</a> &bull; <a href="https://liquipedia.net/{{wiki}}/{{title}}?action=history" target="_blank">history</a></div>
+
+  {%- include 'templates/convert_form.html' %}
+
+  <textarea rows="2" cols="130">{{info}}</textarea>
+
+  <textarea rows="50" cols="130" autofocus>{{converted or ""}}</textarea>
+</body>
+
+</html>

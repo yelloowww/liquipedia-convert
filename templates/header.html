@@ -1,0 +1,6 @@
+<a href="/">&lt; Home</a>
+{%- if header_links is not undefined %}
+{%- for name, url in header_links.items() %}
+&bull; <a href="{{url}}">{{name}}</a>
+{%- endfor %}
+{%- endif %}
