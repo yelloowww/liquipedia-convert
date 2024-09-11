@@ -234,7 +234,6 @@ class Converter:
 
     def pass2_for_table(self, tbl: wtp.Table) -> None:
         if table_result := self.convert_table_to_participant_table(tbl):
-            print("TABLE", table_result)
             self.changes.append((*tbl.span, table_result))
             self.participant_table_span = tbl.span
 
