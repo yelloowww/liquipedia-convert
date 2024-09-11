@@ -114,6 +114,9 @@ BRACKETS = {
     "2Qual-4SEBracket": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
     },
+    "3Qual-6SEBracket": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 4)},
+    },
     "8SEBracket-2Q": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 5)},
         **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 3)},
@@ -377,7 +380,7 @@ BRACKETS = {
         **{f"R1M{8 + i}": (f"R1D{16 + i * 2 - 1}", f"R1D{16 + i * 2}", f"R1G{8 + i}") for i in range(1, 5)},
         **{f"R2M{4 + i}": (f"R2D{i}", f"R2W{8 + i}", f"R2G{4 + i}") for i in range(1, 5)},
         **{f"R3M{i}": (f"R3W{i * 2 - 1}", f"R3W{i * 2}", f"R3G{i}") for i in range(1, 3)},
-        **{f"R5M{2 + i}": (f"R4D{i}", f"R4W{4 + i}", f"R4G{2 + i}") for i in range(1, 3)},
+        **{f"R5M{1 + i}": (f"R4D{i}", f"R4W{4 + i}", f"R4G{2 + i}") for i in range(1, 3)},
     },
     "4Qual-32DEBracket": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 17)},
@@ -391,12 +394,35 @@ BRACKETS = {
         **{f"R5M{i}": (f"R5W{2 + i * 2 - 1}", f"R5W{2 + i * 2}", f"R5G{i}") for i in range(1, 3)},
         **{f"R6M{2 + i}": (f"R6D{i}", f"R6W{i}", f"R6G{i}") for i in range(1, 5)},
     },
+    "5Qual-16DEBracket": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 9)},
+        **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 5)},
+        **{f"R4M{i}": (f"R4W{i * 2 - 1}", f"R4W{i * 2}", f"R4G{i}") for i in range(1, 3)},
+        **{f"R1M{8 + i}": (f"R1D{16 + i * 2 - 1}", f"R1D{16 + i * 2}", f"R1G{8 + i}") for i in range(1, 5)},
+        **{f"R2M{4 + i}": (f"R2D{i}", f"R2W{8 + i}", f"R2G{4 + i}") for i in range(1, 5)},
+        **{f"R3M{i}": (f"R3W{i * 2 - 1}", f"R3W{i * 2}", f"R3G{i}") for i in range(1, 3)},
+        **{f"R4M{2 + i}": (f"R4D{i}", f"R4W{4 + i}", f"R4G{2 + i}") for i in range(1, 3)},
+        "R4M5": ("R4D3", "R4D4", "R4G5"),
+    },
     "6Qual-16DEBracket": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 9)},
         **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 5)},
         **{f"R1M{8 + i}": (f"R1D{16 + i * 2 - 1}", f"R1D{16 + i * 2}", f"R1G{8 + i}") for i in range(1, 5)},
         **{f"R2M{4 + i}": (f"R2D{i}", f"R2W{8 + i}", f"R2G{4 + i}") for i in range(1, 5)},
         **{f"R3M{i}": (f"R3W{i * 2 - 1}", f"R3W{i * 2}", f"R3G{i}") for i in range(1, 3)},
+    },
+    "6Qual-64DEBracket": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 33)},
+        **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 17)},
+        **{f"R4M{i}": (f"R4W{i * 2 - 1}", f"R4W{i * 2}", f"R4G{i}") for i in range(1, 9)},
+        **{f"R6M{i}": (f"R6W{i * 2 - 1}", f"R6W{i * 2}", f"R6G{i}") for i in range(1, 5)},
+        **{f"R1M{32 + i}": (f"R1D{64 + i * 2 - 1}", f"R1D{64 + i * 2}", f"R1G{32 + i}") for i in range(1, 17)},
+        **{f"R2M{16 + i}": (f"R2D{i}", f"R2W{32 + i}", f"R2G{16 + i}") for i in range(1, 17)},
+        **{f"R3M{i}": (f"R3W{i * 2 - 1}", f"R3W{i * 2}", f"R3G{i}") for i in range(1, 9)},
+        **{f"R4M{8 + i}": (f"R4D{i}", f"R4W{16 + i}", f"R4G{8 + i}") for i in range(1, 17)},
+        **{f"R5M{i}": (f"R5W{i * 2 - 1}", f"R5W{i * 2}", f"R5G{i}") for i in range(1, 5)},
+        **{f"R6M{4 + i}": (f"R6D{i}", f"R6W{8 + i}", f"R6G{4 + i}") for i in range(1, 17)},
+        **{f"R7M{i}": (f"R7W{i * 2 - 1}", f"R7W{i * 2}", f"R7G{i}") for i in range(1, 3)},
     },
     "8Qual-8DEBracket": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 5)},
@@ -416,6 +442,11 @@ BRACKETS = {
         **{f"R2M{8 + i}": (f"R2D{i}", f"R2W{16 + i}", f"R2G{8 + i}") for i in range(1, 9)},
         **{f"R3M{i}": (f"R3W{8 + i * 2 - 1}", f"R3W{8 + i * 2}", f"R3G{4 + i}") for i in range(1, 5)},
         **{f"R4M{4 + i}": (f"R4D{i}", f"R4W{4 + i}", f"R4G{i}") for i in range(1, 5)},
+    },
+    "12Qual-16DEBracketSpecial": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 9)},
+        **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 5)},
+        **{f"R2M{4 + i}": (f"R2D{i * 2 - 1}", f"R2D{i * 2}", f"R2G{4 + i}") for i in range(1, 5)},
     },
     # Special
     "3SBracket": {
@@ -722,6 +753,30 @@ BRACKETS = {
         "R10M2": ("R10D1", "R10W3", "R10G2"),
         "R11M1": ("R11W1", "R11W2", "R11G1"),
     },
+    "MLG2013FinalBracket": {
+        **{f"R2M{i}": (f"R2D{i * 2 - 1}", f"R2D{i * 2}", f"R2G{i}") for i in range(1, 3)},
+        "R4M1": ("R4W1", "R4W2", "R4G1"),
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        **{f"R2M{2 + i}": (f"R2D{4 + i}", f"R2W{i}", f"R2G{2 + i}") for i in range(1, 3)},
+        "R3M1": ("R3W1", "R3W2", "R3G1"),
+        "R4M2": ("R4D1", "R4W3", "R4G2"),
+        **{f"R2M{4 + i}": (f"R2D{6 + i * 2 - 1}", f"R2D{6 + i * 2}", f"R2G{4 + i}") for i in range(1, 3)},
+        "R4M3": ("R4W4", "R4W5", "R4G3"),
+        **{f"R1M{2 + i}": (f"R1D{4 + i * 2 - 1}", f"R1D{4 + i * 2}", f"R1G{2 + i}") for i in range(1, 3)},
+        **{f"R2M{6 + i}": (f"R2D{10 + i}", f"R2W{2 + i}", f"R2G{6 + i}") for i in range(1, 3)},
+        "R3M2": ("R3W3", "R3W4", "R3G2"),
+        "R4M4": ("R4D2", "R4W6", "R4G4"),
+        **{f"R5M{i}": (f"R5W{i * 2 - 1}", f"R5W{i * 2}", f"R5G{i}") for i in range(1, 3)},
+        "R6M1": ("R6W1", "R6W2", "R6G1"),
+    },
+    "4DE2SBracket": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        "R3M1": ("R3W1", "R3W2", "R3G1"),
+        **{f"R1M{2 + i}": (f"R1D{4 + i * 2 - 1}", f"R1D{4 + i * 2}", f"R1G{2 + i}") for i in range(1, 3)},
+        "R2M1": ("R2W1", "R2W2", "R2G1"),
+        "R3M2": ("R3D1", "R3W3", "R3G2"),
+        "R4M1": ("R4W1", "R4W2", "R4G1"),
+    },
 }
 
 ROUND_HEADERS = {
@@ -774,43 +829,47 @@ ROUND_HEADERS = {
     },
     "1Qual-2SEBracket": {
         "R1": "R1M1header",
-        "R2": "R1M1qualifiedHeader",
+        "R2": "qualifiedHeader",
     },
     "1Qual-4SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R2M1qualifiedHeader",
+        "R3": "qualifiedHeader",
     },
     "1Qual-8SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
     },
     "1Qual-16SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
-        "R5": "R4M1qualifiedHeader",
+        "R5": "qualifiedHeader",
     },
     "1Qual-32SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 6)},
-        "R6": "R5M1qualifiedHeader",
+        "R6": "qualifiedHeader",
     },
     "2Qual-4SEBracket": {
         "R1": "R1M1header",
-        "R2": "R1M1qualifiedHeader",
+        "R2": "qualifiedHeader",
+    },
+    "3Qual-6SEBracket": {
+        "R1": "R1M1header",
+        "R2": "qualifiedHeader",
     },
     "8SEBracket-2Q": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R2M1qualifiedHeader",
+        "R3": "qualifiedHeader",
     },
     "2Qual-8SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R2M1qualifiedHeader",
+        "R3": "qualifiedHeader",
     },
     "2Qual-16SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
     },
     "3Qual-8SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R3M1qualifiedHeader",
+        "R3": "R2M1qualifiedHeader",
         "L3": "R2M3qualifiedHeader",
     },
     "3Qual-16SEBracket": {
@@ -820,27 +879,27 @@ ROUND_HEADERS = {
     },
     "4Qual-8SEBracket": {
         "R1": "R1M1header",
-        "R2": "R1M1qualifiedHeader",
+        "R2": "qualifiedHeader",
     },
     "4Qual-16SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R2M1qualifiedHeader",
+        "R3": "qualifiedHeader",
     },
     "4Qual-32SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
     },
     "8Qual-16SEBracket": {
         "R1": "R1M1header",
-        "R2": "R1M1qualifiedHeader",
+        "R2": "qualifiedHeader",
     },
     "8Qual-32SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
-        "R3": "R2M1qualifiedHeader",
+        "R3": "qualifiedHeader",
     },
     "8Qual-64SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
     },
     "2LBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
@@ -856,7 +915,7 @@ ROUND_HEADERS = {
     },
     "1Qual-8LBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 7)},
-        "R7": "R6M1qualifiedHeader",
+        "R7": "qualifiedHeader",
     },
     "4DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
@@ -927,19 +986,17 @@ ROUND_HEADERS = {
     },
     "1Qual-4DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
         "L1": "R1M3header",
         "L2": "R2M2header",
-        "L3": "R2M2qualifiedHeader",
     },
     "1Qual-8DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 6) if i != 3},
-        "R5": "R4M1qualifiedHeader",
+        "R5": "qualifiedHeader",
         "L1": "R1M5header",
         "L2": "R2M3header",
         "L3": "R3M1header",
         "L4": "R4M2header",
-        "L5": "R4M2qualifiedHeader",
     },
     "2Qual-4DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
@@ -976,10 +1033,11 @@ ROUND_HEADERS = {
     },
     "3Qual-8DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R4M1qualifiedHeader",
+        "R4": "R3M1qualifiedHeader",
         "L1": "R1M5header",
         "L2": "R2M3header",
-        "L3": "R2M3qualifiedHeader",
+        "L3": "R3M1qualifiedHeader",
+        "L4": "R3M1qualifiedHeader",
     },
     "3Qual-16DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 6) if i != 3},
@@ -1004,7 +1062,7 @@ ROUND_HEADERS = {
         "L1": "R1M5header",
         "L2": "R2M3header",
         "L3": "R3M2header",
-        "L4": "R3M2qualifiedHeader",
+        "L4": "R3M3qualifiedHeader",
     },
     "4Qual-16DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 5) if i != 3},
@@ -1013,7 +1071,7 @@ ROUND_HEADERS = {
         "L2": "R2M5header",
         "L3": "R3M1header",
         "L4": "R4M3header",
-        "L5": "R4M3qualifiedHeader",
+        "L5": "R4M4qualifiedHeader",
     },
     "4Qual-1Win-16DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 5) if i != 3},
@@ -1022,21 +1080,30 @@ ROUND_HEADERS = {
         "L1": "R1M9header",
         "L2": "R2M5header",
         "L3": "R3M1header",
-        "L4": "R5M3header",
-        "L5": "R5M3qualifiedHeader",
+        "L4": "R5M2header",
+        "L5": "R5M2qualifiedHeader",
     },
     "4Qual-32DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
         "R3": "R4M1header",
         "R4": "R6M1header",
-        "R5": "R6M1qualifierHeader",
+        "R5": "R6M1qualifiedHeader",
         "L1": "R1M17header",
         "L2": "R2M9header",
         "L3": "R3M1header",
         "L4": "R4M5header",
         "L5": "R5M1header",
         "L6": "R6M3header",
-        "L7": "R6M3qualifiedHeader",
+        "L7": "R6M4qualifiedHeader",
+    },
+    "5Qual-16DEBracket": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 5) if i != 3},
+        "R5": "R4M1qualifiedHeader",
+        "L1": "R1M9header",
+        "L2": "R2M5header",
+        "L3": "R3M1header",
+        "L4": "R4M3header",
+        "L5": "R4M4qualifiedHeader",
     },
     "6Qual-16DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
@@ -1045,6 +1112,20 @@ ROUND_HEADERS = {
         "L2": "R2M5header",
         "L3": "R3M1header",
         "L4": "R3M1qualifiedHeader",
+    },
+    "6Qual-64DEBracket": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
+        "R3": "R4M1header",
+        "R4": "R6M1header",
+        "R5": "R6M1qualifiedHeader",
+        "L1": "R1M33header",
+        "L2": "R2M17header",
+        "L3": "R3M1header",
+        "L4": "R4M9header",
+        "L5": "R5M1header",
+        "L6": "R6M5header",
+        "L7": "R7M1header",
+        "L8": "R7M1qualifiedHeader",
     },
     "8Qual-8DEBracket": {
         "R1": "R1M1header",
@@ -1057,16 +1138,23 @@ ROUND_HEADERS = {
         "R3": "R2M1qualifiedHeader",
         "L1": "R1M9header",
         "L2": "R2M5header",
-        "L3": "R2M5qualifiedHeader",
+        "L3": "R2M7qualifiedHeader",
     },
     "8Qual-32DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
         "R3": "R4M1header",
+        "R4": "R4M1qualifiedHeader",
         "L1": "R1M17header",
         "L2": "R2M9header",
         "L3": "R3M1header",
         "L4": "R4M5header",
-        "L5": "R4M5qualifiedHeader",
+        "L5": "R4M7qualifiedHeader",
+    },
+    "12Qual-16DEBracketSpecial": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
+        "R3": "R2M1qualifiedHeader",
+        "L2": "R2M5header",
+        "L3": "R2M5qualifiedHeader",
     },
     "3SBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
@@ -1113,6 +1201,9 @@ ROUND_HEADERS = {
     "2Qual-8Top4DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
         "R4": "R3M1qualifiedHeader",
+        "L2": "R2M3header",
+        "L3": "R3M2header",
+        "L3": "R3M2qualifiedHeader",
     },
     "8SE4DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
@@ -1148,7 +1239,10 @@ ROUND_HEADERS = {
     "CodeABracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
     },
-    "4Qual-16SE4S4SBracket": {**{f"R{i}": f"R{i}M1header" for i in range(1, 5)}, "R5": "R4M1qualifiedHeader"},
+    "4Qual-16SE4S4SBracket": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
+        "R5": "qualifiedHeader",
+    },
     "4DE8SBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(3, 6, 2)},
         "R6": "R6M1header",
@@ -1169,8 +1263,8 @@ ROUND_HEADERS = {
         "L3": "R3M5header",
         "L4": "R4M1header",
         "L5": "R5M3header",
-        "L6": "R6M3header",
-        "L7": "R6M3qualifiedHeader",
+        "L6": "R6M1header",
+        "L7": "R6M1qualifiedHeader",
     },
     "4DE8S4SBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(4, 7, 2)},
@@ -1181,11 +1275,10 @@ ROUND_HEADERS = {
         "L4": "R4M3header",
         "L5": "R5M1header",
         "L6": "R6M2header",
-        "L7": "R6M2qualifiedHeader",
     },
     "16Qual-32SE16DELowerBracket": {
-        "R2": "R1M1header",
-        "R3": "R1M1qualifiedHeader",
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
+        "R3": "qualifiedHeader",
     },
     "MLG2012Bracket": {
         "R8": "R8M1header",
@@ -1202,7 +1295,7 @@ ROUND_HEADERS = {
         "R5": "R4M1qualifiedHeader",
         "L1": "R3M5header",
         "L2": "R4M3header",
-        "L3": "R4M3qualifiedHeader",
+        "L3": "R4M4qualifiedHeader",
     },
     "8SE2SBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
@@ -1228,7 +1321,7 @@ ROUND_HEADERS = {
     },
     "5LBracket_V2": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "R4": "R3M1qualifiedHeader",
+        "R4": "qualifiedHeader",
     },
     "MLGWinterOWBSeeds": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 7)},
@@ -1266,6 +1359,22 @@ ROUND_HEADERS = {
         "L10": "R10M2header",
         "R11": "R11M1header",
     },
+    "MLG2013FinalBracket": {
+        "R2": ("R2M1header", "R2M5header"),
+        "R4": ("R4M1header", "R4M3header"),
+        "L1": ("R1M1header", "R1M3header"),
+        "L2": ("R2M3header", "R2M7header"),
+        "L3": ("R3M1header", "R3M2header"),
+        "L4": ("R4M2header", "R4M4header"),
+        "R5": "R5M1header",
+        "R6": "R6M1header",
+    },
+    "4DE2SBracket": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
+        "L1": "R1M3header",
+        "L2": "R2M1header",
+        "L3": "R3M2header",
+    },
 }
 
 BRACKET_NEW_NAMES = {
@@ -1287,6 +1396,7 @@ BRACKET_NEW_NAMES = {
     "1Qual-16SEBracket": "Bracket/16-1Q",
     "1Qual-32SEBracket": "Bracket/32-1Q",
     "2Qual-4SEBracket": "Bracket/4-2Q",
+    "3Qual-6SEBracket": "Bracket/4-2Q-2-1Q",
     "8SEBracket-2Q": "Bracket/8-2Q",
     "2Qual-8SEBracket": "Bracket/8-2Q",
     "2Qual-16SEBracket": "Bracket/16-2Q",
@@ -1322,10 +1432,13 @@ BRACKET_NEW_NAMES = {
     "4Qual-16DEBracket": "Bracket/16-2Q-U-8L4DSL2D-2Q",
     "4Qual-1Win-16DEBracket": "Bracket/16-2QL-U-8L4DSL2D-2Q",
     "4Qual-32DEBracket": "Bracket/32-2Q-U-16L8DSL4DSL2D-2Q",
+    "5Qual-16DEBracket": "Bracket/16-2Q-U-8L4DSL2D-2Q-U-2-1Q",
     "6Qual-16DEBracket": "Bracket/16-4Q-U-8L4DS-2Q",
+    "6Qual-64DEBracket": "Bracket/64-4Q-U-32L16DSL8DSL4DS-2Q",
     "8Qual-8DEBracket": "Bracket/8-4Q-U-8-4Q",
     "8Qual-16DEBracket": "Bracket/16-4Q-U-8L4D-4Q",
     "8Qual-32DEBracket": "Bracket/32-4Q-U-16L8DSL4D-4Q",
+    "12Qual-16DEBracketSpecial": "Bracket/16-8QL-U-8-4Q",
     "3SBracket": "Bracket/2L1D",
     "4SBracket": "Bracket/2L2D",
     "4BracketSpecial": "Bracket/2L2D",
@@ -1347,7 +1460,7 @@ BRACKET_NEW_NAMES = {
     "TeSL12SEBracket": "Bracket/4L8DS",
     "3Qual-32SE16DEBracket": "Bracket/32-2Q-U-8L4DSL2DS-1Q",
     "4DE8S4SBracket": "Bracket/4U8L4DSL2DSL1D",
-    "16Qual-32SE16DELowerBracket": "Bracket/16-8Q",  # 16L8D-8Q
+    "16Qual-32SE16DELowerBracket": "Bracket/16-8Q",  # should have been 16L8D-8Q
     "MLG2012Bracket": "Bracket/4U8L20DSL2DSL1D",
     "4Qual-32Top8DEBracket": "Bracket/32-2Q-U-4L2D-2Q",
     "8SE2SBracket": "Bracket/8L2DS",
@@ -1360,5 +1473,7 @@ BRACKET_NEW_NAMES = {
     "8DE4SBracket": "Bracket/8U8L2DSL1D",
     "BULLSHIT": "Bracket/8U2L1D",
     "5BracketSpecialDouble": "Bracket/4L6DS",
-    "MLGProvidencebracket": "Bracket/8L12DSSU8L20DSL2DSL1D-1Q",
+    "MLGProvidencebracket": "Bracket/8L12DSSU8L20DSL2DSL1D-1Q",  # should have been 8L12DSSU8L20DSL2DSL1D
+    "MLG2013FinalBracket": "Bracket/4H4L2DSL1DLU4U4L2DSL1D",
+    "4DE2SBracket": "Bracket/4U4L1D",
 }
