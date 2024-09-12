@@ -2,6 +2,7 @@ from gevent import monkey
 
 monkey.patch_all()
 
+import argparse
 import bottle
 
 from bracket_join import bracket_join
@@ -152,4 +153,8 @@ def page_team_card_conversion():
 
 
 if __name__ == "__main__":
-    bottle.run(host="0.0.0.0", port=1234, debug=True)
+    parser = argparse.ArgumentParser(prog="liquipedia-convert")
+    parser.add_argument("-p", "--port", type=int, default=1234)
+    args = parser.parse_args()
+
+    bottle.run(host="0.0.0.0", port=args.port, debug=True)
