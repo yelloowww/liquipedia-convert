@@ -83,7 +83,7 @@ class Converter:
     def convert(self) -> tuple[str, str]:
         self.preprocess_text()
 
-        self.info = ""
+        self.info: str = ""
         self.parsed = wtp.parse(self.text)
 
         # Alternatives
@@ -121,7 +121,7 @@ class Converter:
 
         self.text = NOINCLUDE_LEGACY_BRACKET.sub("{{LegacyBracketDisplay\\1", self.text)
 
-    def convert_standard(self):
+    def convert_standard(self) -> str:
         # Populated in conversion functions
         self.not_converted_arguments: set[tuple[str, str]] = set()
         self.changes: list[tuple[int, int, str]] = []
@@ -2248,7 +2248,7 @@ def find_players(parsed: wtp.WikiText) -> list[MatchPlayer]:
     return players
 
 
-def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str | None, str]:
+def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:
     title = title.replace("_", " ")
 
     cache_folder = Path(__file__).parent.parent / "cache" / wiki
@@ -2268,9 +2268,16 @@ def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str | 
 
     if text:
         converted, info = Converter(text, title, options).convert()
-        return converted, info_cache + "\n" + info
+        return converted, info_cache + "\n" + info, text
 
-    return None, f"Error while getting {title} from wiki {wiki}"
+    return "", f"Error while getting {title} from wiki {wiki}", ""
+
+
+def convert_wikitext(text: str, title: str, options: dict[str, Any]) -> tuple[str, str]:
+    if text:
+        return Converter(text, title, options).convert()
+
+    return "", f"Error: no wikitext"
 
 
 def get_liquipedia_page_content(wiki: str, title: str) -> str | None:

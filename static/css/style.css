@@ -76,7 +76,42 @@ fieldset {
     border-radius: 4px;
 }
 
-.main-details {
+#input-tabs {
+    list-style: none;
+    display: flex;
+}
+
+#input-tabs label {
+    display: block;
+    padding: 4px 10px;
+    background: #d8d8d8;
+    border-block-start: 1px solid #a8a8a8;
+    border-inline: 1px solid #a8a8a8;
+}
+
+
+#input-tabs:has(~ #input-type-wiki-and-title:checked) label[for="input-type-wiki-and-title"],
+#input-tabs:has(~ #input-type-wikitext:checked) label[for="input-type-wikitext"] {
+    background: #c8c8c8;
+    font-weight: bold;
+}
+
+input[name="input_type"] {
+    display: none;
+}
+
+.box {
+    display: none;
+    background: #c8c8c8;
+    border: 1px solid #a8a8a8;
+    padding: 8px;
+}
+
+input[name="input_type"]:checked + .box {
+    display: block;
+}
+
+.form-grid {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 4px 8px;
@@ -84,7 +119,14 @@ fieldset {
 
 .input-label {
     font-weight: bold;
+}
+
+#box-wiki-and-title .input-label {
     text-align: end;
+}
+
+#box-wikitext .input-label {
+    display: block;
 }
 
 .options {

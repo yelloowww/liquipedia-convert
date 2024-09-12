@@ -18,13 +18,15 @@
 
   <h2>{{title}}</h2>
 
+  {%- if input_type == "wiki_and_title" and wiki and title %}
   <div><img src="/static/images/lp.png" width="21" height="15" alt="Liquipedia"> <a href="https://liquipedia.net/{{wiki}}/{{title}}" target="_blank">Liquipedia page</a> &bull; <a href="https://liquipedia.net/{{wiki}}/{{title}}?action=edit" target="_blank">edit</a> &bull; <a href="https://liquipedia.net/{{wiki}}/{{title}}?action=history" target="_blank">history</a></div>
+  {%- endif %}
 
   {%- include 'templates/convert_form.html' %}
 
   <textarea rows="2" cols="130">{{info}}</textarea>
 
-  <textarea rows="50" cols="130" autofocus>{{converted or ""}}</textarea>
+  <textarea rows="50" cols="130" autofocus>{{converted}}</textarea>
 </body>
 
 </html>

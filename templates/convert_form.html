@@ -1,19 +1,40 @@
-  <form action="/convert/result" method="get">
+  <form action="/convert/result" method="post">
 
-    <div class="main-details">
-      <label class="input-label">Wiki</label>
-      <div>
-        <select id="convert-wiki" name="wiki">
-          <option value="starcraft" {% if wiki == "starcraft" %}selected{% endif %}>Brood War (starcraft)</option>
-          <option value="starcraft2" {% if wiki == "starcraft2" %}selected{% endif %}>StarCraft II (starcraft2)</option>
-        </select>
+    <div class="input">
+      <div id="input-tabs">
+        <label class="input-type" for="input-type-wiki-and-title">Wiki & title</label>
+        <label class="input-type" for="input-type-wikitext">Wikitext</label>
       </div>
+      <input type="radio" id="input-type-wiki-and-title" name="input_type" value="wiki_and_title" {% if input_type == "wiki_and_title" %}checked{% endif %}/>
+      <div class="box" id="box-wiki-and-title">
+        <div class="form-grid">
+          <label class="input-label">Wiki</label>
+          <div>
+            <select id="convert-wiki" name="wiki">
+              <option value="starcraft" {% if wiki == "starcraft" %}selected{% endif %}>Brood War (starcraft)</option>
+              <option value="starcraft2" {% if wiki == "starcraft2" %}selected{% endif %}>StarCraft II (starcraft2)</option>
+            </select>
+          </div>
 
-      <label class="input-label">Page title</label>
-      <div>
-        <input type="text" id="convert-title" name="title" size="80" value="{{title}}" placeholder="Page title" />
-        <button type="button" class="decrement-number" title="Decrement number after the last /"># -</button>
-        <button type="button" class="increment-number" title="Increment number after the last /"># +</button>
+          <label class="input-label">Page title</label>
+          <div>
+            <input type="text" id="convert-title" name="title" size="80" value="{{title}}" placeholder="Page title" />
+            <button type="button" class="decrement-number" title="Decrement number after the last /"># -</button>
+            <button type="button" class="increment-number" title="Increment number after the last /"># +</button>
+          </div>
+        </div>
+      </div>
+      <input type="radio" id="input-type-wikitext" name="input_type" value="wikitext" {% if input_type == "wikitext" %}checked{% endif %}/>
+      <div class="box" id="box-wikitext">
+        <div class="form-grid">
+          <label class="input-label">Page title</label>
+          <div>
+            <input type="text" id="convert-wikitext-title" name="wikitext_title" size="80" value="{{wikitext_title}}" placeholder="Page title" />
+            <span> (optional, for context)</span>
+          </div>
+          <label class="input-label">Wikitext</label>
+          <textarea id="wikitext" name="wikitext" rows="10" cols="130" autofocus>{{wikitext}}</textarea>
+        </div>
       </div>
     </div>
 

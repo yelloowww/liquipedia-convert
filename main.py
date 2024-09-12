@@ -7,7 +7,7 @@ import bottle
 
 from bracket_join import bracket_join
 from convert_team_card import convert_team_card
-from conversion.convert_tournaments import convert_page
+from conversion.convert_tournaments import convert_page, convert_wikitext
 
 
 # Dict values are default values
@@ -85,28 +85,66 @@ def index() -> str:
 @bottle.route("/convert")
 @bottle.jinja2_view("templates/convert")
 def convert():
-    return {"title": "", "options": {**BOOL_OPTIONS, **STRING_OPTIONS}, "open": True}
+    return {"input_type": "wiki_and_title", "title": "", "options": {**BOOL_OPTIONS, **STRING_OPTIONS}, "open": True}
 
 
-@bottle.route("/convert/result")
+@bottle.route("/convert/result", method="POST")
 @bottle.jinja2_view("templates/convert_result")
 def convert_result():
     options = {
-        **{key: bool(getattr(bottle.request.query, key)) for key in BOOL_OPTIONS},
-        **{key: getattr(bottle.request.query, key) for key in STRING_OPTIONS},
+        **{key: bool(bottle.request.forms.get(key)) for key in BOOL_OPTIONS},
+        **{key: bottle.request.forms.get(key) for key in STRING_OPTIONS},
     }
 
-    wiki = bottle.request.query.wiki
-    if not wiki:
-        return {"wiki": "", "converted": "", "info": "Error: No wiki", "options": options, "open": False}
+    input_type = bottle.request.forms.get("input_type", "")
+    wiki = bottle.request.forms.get("wiki", "")
+    title = bottle.request.forms.get("title", "")
+    wikitext_title = bottle.request.forms.get("wikitext_title", "")
+    wikitext = bottle.request.forms.get("wikitext", "")
+    if (
+        (input_type == "wiki_and_title" and (not wiki or not title))
+        or (input_type == "wiki_and_text" and not wikitext)
+        or input_type not in ("wiki_and_title", "wikitext")
+    ):
+        info = ""
+        if input_type == "wiki_and_title":
+            if not wiki:
+                info = "Error: No wiki"
+            if not title:
+                info = "Error: No title"
+        elif input_type == "wikitext":
+            if not wikitext:
+                info = "Error: No wikitext"
+        else:
+            info = 'Error: input_type should be "wiki_and_title" or "wikitext"'
+        return {
+            "input_type": input_type,
+            "wiki": wiki,
+            "title": title,
+            "wikitext": wikitext,
+            "wikitext_title": wikitext_title,
+            "converted": "",
+            "info": info,
+            "options": options,
+            "open": False,
+        }
 
-    title = bottle.request.query.title
-    if not title:
-        return {"title": "", "converted": "", "info": "Error: No title", "options": options, "open": False}
+    if input_type == "wiki_and_title":
+        converted, info, wikitext = convert_page(wiki, title, options)
+    elif input_type == "wikitext":
+        converted, info = convert_wikitext(wikitext, wikitext_title, options)
 
-    converted, info = convert_page(wiki, title, options)
-
-    return {"wiki": wiki, "title": title, "converted": converted, "info": info, "options": options, "open": False}
+    return {
+        "input_type": input_type or "wiki_and_title",
+        "wiki": wiki,
+        "title": title,
+        "wikitext": wikitext,
+        "wikitext_title": wikitext_title,
+        "converted": converted,
+        "info": info,
+        "options": options,
+        "open": False,
+    }
 
 
 @bottle.route("/convert_api", method=["OPTIONS", "POST"])
@@ -117,17 +155,53 @@ def convert_api():
         **{key: bottle.request.json.get(key) for key in STRING_OPTIONS},
     }
 
-    wiki = bottle.request.json["wiki"]
-    if not wiki:
-        return {"wiki": "", "converted": "", "info": "Error: No wiki", "options": options}
+    input_type = bottle.request.json.get("input_type", "")
+    wiki = bottle.request.json.get("wiki", "")
+    title = bottle.request.json.get("title", "")
+    wikitext_title = bottle.request.forms.get("wikitext_title", "")
+    wikitext = bottle.request.query.json.get("wikitext", "")
+    if (
+        (input_type == "wiki_and_title" and (not wiki or not title))
+        or (input_type == "wiki_and_text" and not wikitext)
+        or input_type not in ("wiki_and_title", "wikitext")
+    ):
+        info = ""
+        if input_type == "wiki_and_title":
+            if not wiki:
+                info = "Error: No wiki"
+            if not title:
+                info = "Error: No title"
+        elif input_type == "wikitext":
+            if not wikitext:
+                info = "Error: No wikitext"
+        else:
+            info = 'Error: input_type should be "wiki_and_title" or "wikitext"'
+        return {
+            "input_type": input_type,
+            "wiki": wiki,
+            "title": title,
+            "wikitext": wikitext,
+            "wikitext_title": wikitext_title,
+            "converted": "",
+            "info": info,
+            "options": options,
+        }
 
-    title = bottle.request.json["title"]
-    if not title:
-        return {"title": "", "converted": "", "info": "Error: No title", "options": options}
+    if input_type == "wiki_and_title":
+        converted, info, wikitext = convert_page(wiki, title, options)
+    elif input_type == "wikitext":
+        converted, info = convert_wikitext(wikitext, wikitext_title, options)
 
-    converted, info = convert_page(wiki, title, options)
-
-    return {"wiki": wiki, "title": title, "converted": converted, "info": info, "options": options}
+    return {
+        "input_type": input_type,
+        "wiki": wiki,
+        "title": title,
+        "wikitext": wikitext,
+        "wikitext_title": wikitext_title,
+        "converted": converted,
+        "info": info,
+        "options": options,
+    }
 
 
 @bottle.route("/bracket_join")
