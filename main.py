@@ -158,8 +158,8 @@ def convert_api():
     input_type = bottle.request.json.get("input_type", "")
     wiki = bottle.request.json.get("wiki", "")
     title = bottle.request.json.get("title", "")
-    wikitext_title = bottle.request.forms.get("wikitext_title", "")
-    wikitext = bottle.request.query.json.get("wikitext", "")
+    wikitext_title = bottle.request.json.get("wikitext_title", "")
+    wikitext = bottle.request.json.get("wikitext", "")
     if (
         (input_type == "wiki_and_title" and (not wiki or not title))
         or (input_type == "wiki_and_text" and not wikitext)
