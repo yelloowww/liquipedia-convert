@@ -16,6 +16,10 @@ body {
     color: #222222;
 }
 
+h2 {
+    margin-block: 0.4em;
+}
+
 a {
     color: #0d61a4;
     text-decoration: none;
