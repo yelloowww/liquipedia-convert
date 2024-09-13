@@ -62,6 +62,7 @@ MATCH_LIST_ARGUMENTS = [
         "title": "title",
         "hide": "collapsed",
         "width": "width",
+        "vod": None,
     }
 ]
 MATCH_MAPS_ARGUMENTS = [

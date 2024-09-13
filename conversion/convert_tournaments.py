@@ -296,6 +296,12 @@ class Converter:
                 self.match_texts = []
                 self.match_list_comments = []
                 self.match_maps_prev_bestof = None
+                if (x := tpl.get_arg("vod")) and (vod := clean_arg_value(x)):
+                    self.match_list_vod = vod
+                    id_ = clean_arg_value(tpl.get_arg("id"))
+                    self.info += f"WARN: vod in Match list start {id_} moved to the first match of the list" "\n"
+                else:
+                    self.match_list_vod = None
             case "Match maps":
                 if mm_result := self.convert_match_maps(tpl):
                     self.match_texts.append(mm_result)
@@ -313,6 +319,8 @@ class Converter:
                 self.match_list_text += "\n}}"
                 if self.match_list_comments:
                     self.match_list_text += "\n" + " ".join(self.match_list_comments)
+                if self.match_list_vod:
+                    self.info += "WARN: ... No match to move the VOD to" "\n"
                 self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
 
             case "LegacyBracket" | "LegacyBracketDisplay":
@@ -1098,6 +1106,14 @@ class Converter:
         # Add "dateheader=true" after a "date=" argument
         if (index := next((i for i, e in enumerate(start_texts) if e.startswith("|date=")), None)) is not None:
             start_texts.insert(index + 1, "|dateheader=true")
+        # Add vod from Match list start if there is one
+        if self.match_list_vod:
+            if (x := tpl.get_arg("vod")) and clean_arg_value(x):
+                match_list_vod_arg = f"vodgame{max(vodgames_processed) + 1}"
+            else:
+                match_list_vod_arg = "vod"
+            start_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
+            self.match_list_vod = None
         texts += start_texts
 
         if map_texts and (has_a_non_empty_map or sum(map_scores) == 0):
