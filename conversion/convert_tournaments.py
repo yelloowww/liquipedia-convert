@@ -502,10 +502,8 @@ class Converter:
         has_race_count = False
         has_section_count = False
 
-        if table.tables or not table.data(span=True):
+        if table.tables or not (rows := table.data(span=True)) or max(len(row) for row in rows) > 4:
             return None
-
-        max_col = max(len(row) for row in table.data(span=True))
 
         cells = table.cells(span=False)
         table_races = list(SHORT_RACES)
@@ -554,12 +552,22 @@ class Converter:
                         p.name = c.plain_text().strip().removeprefix("|").lstrip()
                 elif name == "RaceColorClass" or name == "RaceIconSmall":
                     if col < 4:
-                        table_races[col] = clean_arg_value(tpl.get_arg("1"))[0].lower()
+                        race = clean_arg_value(tpl.get_arg("1"))[0].lower()
+                        race = RACES.get(race, race)
+                        if race == "r" and "Unknown" in val:
+                            table_races[col] = "u"
+                        else:
+                            table_races[col] = race
                     if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                         has_race_count = True
                     has_a_race_cell = True
                 elif name in ("P", "T", "Z", "R") and col < 4:
-                    table_races[col] = name.lower()
+                    race = name.lower()
+                    race = RACES.get(race, race)
+                    if race == "r" and "Unknown" in val:
+                        table_races[col] = "u"
+                    else:
+                        table_races[col] = race
                     has_a_race_cell = True
             if not p.name:
                 del p
@@ -576,7 +584,7 @@ class Converter:
             sections[-1].participants.append(p)
 
         # Exit the function if the table is not a participant table
-        if max_col > 4 or not ((has_a_teampart_tpl and has_a_player) or has_a_race_cell):
+        if not ((has_a_teampart_tpl and has_a_player) or has_a_race_cell):
             return None
 
         for section in sections:
