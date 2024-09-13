@@ -1166,7 +1166,7 @@ class Converter:
             conversion = BRACKETS[legacy_bracket_name]
         else:
             if x and legacy_bracket_name:
-                self.info += f"WARN: Bracket {legacy_bracket_name} unknown"
+                self.info += f"WARN: Bracket {legacy_bracket_name} unknown" "\n"
             return None
 
         if x := tpl.get_arg("1"):
@@ -1375,14 +1375,17 @@ class Converter:
             if match_texts1:
                 # Add an empty line between rounds
                 if round_number != prev_round_number:
-                    if (
-                        player_prefixes[0] in prev_arguments
-                        and "\n" in (prev_arg := prev_arguments[player_prefixes[0]].value)
-                        and (m := END_OF_PARAM_VALUE_PATTERN.search(prev_arg))
-                    ):
-                        bracket_texts.append(m.group(0).removeprefix("\n").removesuffix("\n"))
-                    elif prev_round_number:
-                        bracket_texts.append("")
+                    for suffix in ("", "flag", "race"):
+                        if (
+                            (a := f"{player_prefixes[0]}{suffix}") in prev_arguments
+                            and "\n" in (prev_arg := prev_arguments[a].value)
+                            and (m := END_OF_PARAM_VALUE_PATTERN.search(prev_arg))
+                        ):
+                            bracket_texts.append(m.group(0).removeprefix("\n").removesuffix("\n"))
+                            break
+                    else:
+                        if prev_round_number:
+                            bracket_texts.append("")
 
                 match_text = "{{Match\n"
                 if match_texts0:
