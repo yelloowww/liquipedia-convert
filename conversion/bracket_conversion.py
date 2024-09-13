@@ -1920,7 +1920,7 @@ BRACKET_NEW_NAMES = {
     "32SE16DEBracket": "Bracket/32U8L4DSL2DSL1D",
     "4Qual-32SE16S8SBracket": "Bracket/32L16DSL8DS-4Q",
     "4Qual-8DE4SBracket": "Bracket/8-2Q-U-8L2D-2Q",
-    "8Qual-64DEBracket_V2": "Bracket/64U32L16DSL8DSL4DSL2DSL1D", # actually a full 64DEBracket
+    "8Qual-64DEBracket_V2": "Bracket/64U32L16DSL8DSL4DSL2DSL1D",  # actually a full 64DEBracket
     "SRSIbracket": "Bracket/8L8DSSU8L4DSL2DSL1D",
     "StarbowBracket": "Bracket/16L4DSL2DS",
     "TeSLBracket": "Bracket/4L2DSU2L1D",

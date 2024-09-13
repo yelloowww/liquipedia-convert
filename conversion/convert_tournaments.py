@@ -1198,10 +1198,11 @@ class Converter:
             if m := LEGACY_ROUND_HEADER_PATTERN.match(arg_name):
                 if legacy_bracket_name in ROUND_HEADERS and arg_name in ROUND_HEADERS[legacy_bracket_name]:
                     new_arg = ROUND_HEADERS[legacy_bracket_name][arg_name]
+                    new_value = clean_arg_value(x).removeprefix("'''").removesuffix("'''")
                     if isinstance(new_arg, tuple):
-                        bracket_texts += [f"|{new_arg_name}={clean_arg_value(x)}" for new_arg_name in new_arg]
+                        bracket_texts += [f"|{new_arg_name}={new_value}" for new_arg_name in new_arg]
                     else:
-                        bracket_texts.append(f"|{new_arg}={clean_arg_value(x)}")
+                        bracket_texts.append(f"|{new_arg}={new_value}")
                 else:
                     self.info += f"Cannot find header equivalent for {arg_name} in {legacy_bracket_name}" "\n"
         # Used for start-of-round breaks
