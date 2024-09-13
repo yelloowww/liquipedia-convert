@@ -587,9 +587,6 @@ class Converter:
         if not ((has_a_teampart_tpl and has_a_player) or has_a_race_cell):
             return None
 
-        for section in sections:
-            self.participants |= {p.name: p for p in section.participants}
-
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
             and self.prize_pool_tables_processed == 0
@@ -600,6 +597,10 @@ class Converter:
         else:
             result = self.participants_table_from_sections(sections, has_race_count, has_section_count)
         self.prize_pool_tables_processed += 1
+
+        if result is not None:
+            for section in sections:
+                self.participants |= {p.name: p for p in section.participants}
 
         if table.comments and result is not None:
             self.info += "WARN: Comments in participant table will be lost" "\n"
@@ -1640,10 +1641,12 @@ class Converter:
 
         if player.name in self.participants:
             participant = self.participants[player.name]
+
             p_flag = participant.flag.lower()
             p_flag = COUNTRIES.get(p_flag, p_flag)
             if flag and (flag != p_flag):
                 return False, False
+
             p_race = participant.race.lower()
             p_race = RACES.get(p_race, p_race)
             is_offrace = race and (race != p_race)
