@@ -57,7 +57,7 @@ BRACKET_MATCH_PATTERN = re.compile(r"R(\d+|x)M.+", re.UNICODE)
 END_OF_PARAM_VALUE_PATTERN = re.compile(r"(?s)(\s|<!--.+-->)+$", re.UNICODE)
 PLACE_PATTERN = re.compile(r"(\d+)$", re.UNICODE)
 FLAG_TEMPLATE_PATTERN = re.compile(r"^Flag/(.+)$", re.UNICODE)
-LEGACY_ROUND_HEADER_PATTERN = re.compile(r"^([RL])\d+$", re.UNICODE)
+LEGACY_ROUND_HEADER_PATTERN = re.compile(r"^(?:([RL])\d+|Q)$", re.UNICODE)
 SCORE_ADVANTAGE_PATTERN = re.compile(
     r"<abbr title=\"Winner's bracket advantage of 1 game\"> *(\d+) *</abbr>", re.UNICODE
 )

@@ -117,7 +117,7 @@ BRACKET_ARGUMENTS = [
     {
         "hideroundtitles": "hideRoundTitles",
         "column-width": None,
-        "[RL](\\d+)": None,
+        "(?:[RL](\\d+)|Q)": None,
         "[12]": None,
         "R\\d+[DW]\\d+(?:flag|race|win|score[23]?|team|short|literal)?": None,
         "R\\d+G\\d+details": None,
