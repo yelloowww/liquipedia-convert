@@ -8,12 +8,19 @@ BRACKETS = {
         "R2M1": ("R2W1", "R2W2", "R2G1"),
         "RxMTP": ("R2D1", "R2D2", "R2G2"),
     },
+    # 2L1DH2L version
+    # "5SEBracket": {
+    #     "R1M1": ("R1D1", "R1D2", "R1G1"),
+    #     "R2M1": ("R2D1", "R2W1", "R2G1"),
+    #     "R2M2": ("R2D2", "R2D3", "R2G2"),
+    #     "R3M1": ("R3W1", "R3W2", "R3G1"),
+    #     "RxMTP": ("R3D1", "R3D2", "R3G2"),
+    # },
+    # 4L1D version
     "5SEBracket": {
-        "R1M1": ("R1D1", "R1D2", "R1G1"),
-        "R2M1": ("R2D1", "R2W1", "R2G1"),
-        "R2M2": ("R2D2", "R2D3", "R2G2"),
-        "R3M1": ("R3W1", "R3W2", "R3G1"),
-        "RxMTP": ("R3D1", "R3D2", "R3G2"),
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        "R2M1": ("R2W1", "R2W2", "R2G1"),
+        "R3M1": ("R3D1", "R3W1", "R3G1"),
     },
     "6SEBracket": {
         **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
@@ -1026,9 +1033,14 @@ ROUND_HEADERS = {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
         "L2": "RxMTPheader",
     },
+    # 2L1DH2L version
+    # "5SEBracket": {
+    #     **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
+    #     "L3": "RxMTPheader",
+    # },
+    # 4L1D version
     "5SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
-        "L3": "RxMTPheader",
     },
     "6SEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 4)},
@@ -1802,7 +1814,8 @@ ROUND_HEADERS = {
 BRACKET_NEW_NAMES = {
     "2SEBracket": "Bracket/2",
     "4SEBracket": "Bracket/4",
-    "5SEBracket": "Bracket/Bracket/2L1DH2L",
+    # "5SEBracket": "Bracket/2L1DH2L",
+    "5SEBracket": "Bracket/4L1D",
     "6SEBracket": "Bracket/4L2DS",
     "8SEBracket": "Bracket/8",
     "9SEBracket": "Bracket/2L1DH2LH4L",
