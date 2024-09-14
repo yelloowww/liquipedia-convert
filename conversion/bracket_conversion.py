@@ -1940,3 +1940,5 @@ BRACKET_NEW_NAMES = {
     "TeSLBracket": "Bracket/4L2DSU2L1D",
     "WCSKnockoutBracket": "Bracket/32L32D-8Q",
 }
+
+LEGACY_PLAYER_AND_GAME_PREFIXES = {name: sum(matches.values(), ()) for name, matches in BRACKETS.items()}

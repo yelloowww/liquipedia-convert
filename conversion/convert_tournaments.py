@@ -62,9 +62,13 @@ SCORE_ADVANTAGE_PATTERN = re.compile(
     r"<abbr title=\"Winner's bracket advantage of 1 game\"> *(\d+) *</abbr>", re.UNICODE
 )
 STRIKETHROUGH_PATTERN = re.compile(r"<s>((?:(?!<\/s>).)+)</s>", re.UNICODE)
-NOINCLUDE_LEGACY_BRACKET = re.compile(
+NOINCLUDE_LEGACY_BRACKET_PATTERN = re.compile(
     r"\{\{<noinclude>LegacyBracket(.+?)<\/noinclude><includeonly>DisplayBracket<\/includeonly>", re.UNICODE
 )
+LEGACY_PLAYER_PREFIX_PATTERN = re.compile(
+    r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|team|short|literal)?$", re.UNICODE
+)
+LEGACY_GAME_DETAILS_PATTERN = re.compile(r"^(R\d+G\d+)details$", re.UNICODE)
 
 with open("countries.json", "r") as f:
     COUNTRIES = json.load(f)
@@ -119,7 +123,7 @@ class Converter:
 
             self.text = TO_GAMESET_PATTERN.sub(replace_gamesets, self.text)
 
-        self.text = NOINCLUDE_LEGACY_BRACKET.sub("{{LegacyBracketDisplay\\1", self.text)
+        self.text = NOINCLUDE_LEGACY_BRACKET_PATTERN.sub("{{LegacyBracketDisplay\\1", self.text)
 
     def convert_standard(self) -> str:
         # Populated in conversion functions
@@ -1202,6 +1206,7 @@ class Converter:
         if x := tpl.get_arg("id"):
             id_ = clean_arg_value(x)
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
+        unknown_args = []
         for x in tpl.arguments:
             arg_name = x.name.strip()
             if m := LEGACY_ROUND_HEADER_PATTERN.match(arg_name):
@@ -1213,7 +1218,14 @@ class Converter:
                     else:
                         bracket_texts.append(f"|{new_arg}={new_value}")
                 else:
-                    self.info += f"Cannot find header equivalent for {arg_name} in {legacy_bracket_name}" "\n"
+                    unknown_args.append(arg_name)
+            elif (
+                (m := LEGACY_PLAYER_PREFIX_PATTERN.match(arg_name))
+                or (m := LEGACY_GAME_DETAILS_PATTERN.match(arg_name))
+            ) and m.group(1) not in LEGACY_PLAYER_AND_GAME_PREFIXES[legacy_bracket_name]:
+                unknown_args.append(arg_name)
+        if unknown_args:
+            self.info += f"WARN: Argument(s) unknown for bracket {legacy_bracket_name} ({len(unknown_args)}): {', '.join(unknown_args)}" "\n"
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
 
