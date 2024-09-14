@@ -326,7 +326,7 @@ BRACKETS = {
         **{f"R5M{i}": (f"R5W{2 + i * 2 - 1}", f"R5W{2 + i * 2}", f"R5G{1 + i}") for i in range(1, 3)},
         **{f"R6M{2 + i}": (f"R6D{i}", f"R6W{i}", f"R6G{i}") for i in range(1, 3)},
         "R7M1": ("R7W1", "R7W2", "R7G1"),
-        "R8M2": ("R8D1", "R8W1", "R8G2"),
+        "R8M2": ("R8D1", "R8W1", "R8G1"),
         "R9M1": ("R9W1", "R9W2", "R9G1"),
     },
     "1Qual-4DEBracket": {
