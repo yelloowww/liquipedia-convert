@@ -231,7 +231,7 @@ class Converter:
             converted = f"{converted[:start]}{new_text}{converted[end:]}"
 
         if self.not_converted_arguments:
-            self.info += f"Arguments not converted: {len(self.not_converted_arguments)} "
+            self.info += f"WARN: Arguments not converted: {len(self.not_converted_arguments)} "
             self.info += str(sorted(self.not_converted_arguments))
 
         return converted
@@ -313,7 +313,7 @@ class Converter:
                 if mmt_result := self.convert_match_maps_team(tpl):
                     self.match_texts.append(mmt_result)
             case "Match list comment":
-                self.info += "WARN Match list comment may be lost\n"
+                self.info += "WARN: Match list comment may be lost\n"
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
             case "Match list end":
                 match_list_end_pos = tpl.span[1]
@@ -1101,14 +1101,14 @@ class Converter:
                     texts.insert(0, f"|bestof={clean_arg_value(x)}")
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += f"bestof cannot be guessed for score {'-'.join(scores)}" "\n"
+                    self.info += f"WARN: bestof cannot be guessed for score {'-'.join(scores)}" "\n"
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
                         texts.insert(0, f"|bestof={bestof}")
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"Match list: Change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
+                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
@@ -1156,14 +1156,14 @@ class Converter:
                     texts.insert(0, f"|bestof={clean_arg_value(x)}")
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += f"bestof cannot be guessed for score {'-'.join(scores)}" "\n"
+                    self.info += f"WARN: bestof cannot be guessed for score {'-'.join(scores)}" "\n"
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
                         texts.insert(0, f"|bestof={bestof}")
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"Match list: Change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
+                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
@@ -1311,13 +1311,13 @@ class Converter:
                         match_texts0.insert(0, f"|bestof={clean_arg_value(x)}")
                 else:
                     if num_scores[0] == num_scores[1]:
-                        self.info += f"{match_id}: bestof cannot be guessed for score {'-'.join(scores)}" "\n"
+                        self.info += f"WARN: In {match_id}, bestof cannot be guessed for score {'-'.join(scores)}" "\n"
                     else:
                         bestof = max(num_scores) * 2 - 1
                         if bestof != prev_bestof:
                             match_texts0.append(f"|bestof={bestof}")
                             if prev_bestof is not None:
-                                self.info += f"{match_id}: Change of bestof from {prev_bestof} to {bestof}" "\n"
+                                self.info += f"WARN: In {match_id}, change of bestof from {prev_bestof} to {bestof}" "\n"
                             prev_bestof = bestof
 
             if "W" not in scores:
@@ -1512,7 +1512,7 @@ class Converter:
                     if bestof != prev_bestof:
                         match_texts0.append(f"|bestof={bestof}")
                         if prev_bestof is not None:
-                            self.info += f"{match_id}: Change of bestof from {prev_bestof} to {bestof}" "\n"
+                            self.info += f"WARN: In {match_id}, change of bestof from {prev_bestof} to {bestof}" "\n"
                         prev_bestof = bestof
 
             if wins[0] and not wins[1]:
