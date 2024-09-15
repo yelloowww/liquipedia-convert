@@ -230,6 +230,7 @@ def page_team_card_conversion():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="liquipedia-convert")
     parser.add_argument("-p", "--port", type=int, default=1234)
+    parser.add_argument("-d", "--debug", action="store_true")
     args = parser.parse_args()
 
-    bottle.run(host="0.0.0.0", port=args.port, debug=True)
+    bottle.run(host="0.0.0.0", port=args.port, debug=args.debug)
