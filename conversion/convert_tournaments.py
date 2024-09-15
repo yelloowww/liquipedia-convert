@@ -1212,6 +1212,8 @@ class Converter:
             bracket_name = clean_arg_value(x)
         else:
             return None
+        if bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
+            self.info += f"WARN: {bracket_name} is not the new name expected for {legacy_bracket_name}" "\n"
 
         id_ = clean_arg_value(tpl.get_arg("id"))
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
@@ -1483,7 +1485,12 @@ class Converter:
         else:
             return None
 
-        bracket_name = BRACKET_NEW_NAMES[legacy_name]
+        if x := tpl.get_arg("1"):
+            bracket_name = clean_arg_value(x)
+        else:
+            return None
+        if bracket_name != BRACKET_NEW_NAMES[legacy_name]:
+            self.info += f"WARN: {bracket_name} is not the new name expected for {legacy_name}" "\n"
 
         id = generate_id()
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
