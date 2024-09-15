@@ -1446,7 +1446,7 @@ class Converter:
                             and "\n" in (prev_arg := prev_arguments[a].value)
                             and (m := END_OF_PARAM_VALUE_PATTERN.search(prev_arg))
                         ):
-                            bracket_texts.append(m.group(0).removeprefix("\n").removesuffix("\n"))
+                            bracket_texts.append(remove_start_and_end_newlines(m.group(0)))
                             break
                     else:
                         if prev_round_number:
@@ -2328,6 +2328,18 @@ def find_players(parsed: wtp.WikiText) -> list[MatchPlayer]:
                 player.race = clean_arg_value(x)
             players.append(player)
     return players
+
+
+def remove_start_and_end_newlines(text: str) -> str:
+    if text.startswith("\r\n"):
+        text = text.removeprefix("\r\n")
+    elif text.startswith("\n"):
+        text = text.removeprefix("\n")
+    if text.endswith("\r\n"):
+        text = text.removesuffix("\r\n")
+    elif text.endswith("\n"):
+        text = text.removesuffix("\n")
+    return text
 
 
 def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:
