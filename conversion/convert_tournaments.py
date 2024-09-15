@@ -1452,10 +1452,12 @@ class Converter:
                         if prev_round_number:
                             bracket_texts.append("")
 
-                match_text = "{{Match\n"
+                match_text = "{{Match"
                 if match_texts0:
-                    match_text += "\n".join(match_texts0) + "\n"
-                match_text += "\n".join(match_texts1) + "\n}}"
+                    if not match_texts0[0].startswith("|bestof"):
+                        match_text += "\n"
+                    match_text += "\n".join(match_texts0)
+                match_text += "\n" + "\n".join(match_texts1) + "\n}}"
                 bracket_texts.append(f"|{match_id}={match_text}")
 
             prev_round_number = round_number
