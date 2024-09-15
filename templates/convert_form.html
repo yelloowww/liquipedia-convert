@@ -114,6 +114,10 @@
             <label for="bracket_do_not_convert_details">Do not convert bracket details ("RxGydetails")</label>
           </div>
           <div>
+            <input type="checkbox" name="bracket_identify_by_arg_1" id="bracket_identify_by_arg_1"{% if options['bracket_identify_by_arg_1'] %}checked{% endif %}/>
+            <label for="bracket_identify_by_arg_1">Identify by arg 1 (new name, e.g. Bracket/2) instead of arg 2 (legacy name, e.g. 2SEBracket)</label>
+          </div>
+          <div>
             <input type="checkbox" name="bracket_guess_bestof" id="bracket_guess_bestof"{% if options['bracket_guess_bestof'] %}checked{% endif %}/>
             <label for="bracket_guess_bestof">Add bestof parameter (guessed from the score of the winner)</label>
           </div>

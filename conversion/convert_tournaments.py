@@ -1199,21 +1199,29 @@ class Converter:
         return "{{Match\n" + "\n".join(texts) + "\n}}"
 
     def convert_bracket(self, tpl: wtp.Template) -> str | None:
-        if (x := tpl.get_arg("2")) and (legacy_bracket_name := clean_arg_value(x)) in BRACKETS:
-            conversion = BRACKETS[legacy_bracket_name]
-        else:
-            if x and legacy_bracket_name:
-                self.info += f"⚠️ Bracket {legacy_bracket_name} unknown\n"
-            return None
-
-        if x := tpl.get_arg("1"):
-            bracket_name = clean_arg_value(x)
-        else:
-            return None
-
+        bracket_name = clean_arg_value(tpl.get_arg("1"))
+        legacy_bracket_name = clean_arg_value(tpl.get_arg("2"))
         id_ = clean_arg_value(tpl.get_arg("id"))
-        if bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
+
+        if not bracket_name or not legacy_bracket_name:
+            self.info += f"⚠️ [Bracket {id_}] Empty argument 1 or 2\n"
+            return None
+
+        if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
             self.info += f"⚠️ [Bracket {id_}] {bracket_name} is not the new name expected for {legacy_bracket_name}\n"
+
+        if self.options["bracket_identify_by_arg_1"]:
+            if bracket_name in BRACKET_LEGACY_NAMES:
+                legacy_bracket_name = BRACKET_LEGACY_NAMES[bracket_name]
+            else:
+                self.info += f"⚠️ [Bracket {id_}] Bracket {bracket_name} unknown\n"
+                return None
+
+        if legacy_bracket_name in BRACKETS:
+            conversion = BRACKETS[legacy_bracket_name]
+        elif legacy_bracket_name:
+            self.info += f"⚠️ [Bracket {id_}] Bracket {legacy_bracket_name} unknown\n"
+            return None
 
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
         unknown_args = []
@@ -1541,7 +1549,9 @@ class Converter:
                     if bestof != prev_bestof:
                         match_texts0.append(f"|bestof={bestof}")
                         if prev_bestof is not None:
-                            self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+                            self.info += (
+                                f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+                            )
                         prev_bestof = bestof
 
             if wins[0] and not wins[1]:

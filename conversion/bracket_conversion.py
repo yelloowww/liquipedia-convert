@@ -1972,4 +1972,5 @@ BRACKET_NEW_NAMES = {
     "WCSKnockoutBracket": "Bracket/32L32D-8Q",
 }
 
+BRACKET_LEGACY_NAMES = {new: legacy for legacy, new in BRACKET_NEW_NAMES.items()}
 LEGACY_PLAYER_AND_GAME_PREFIXES = {name: sum(matches.values(), ()) for name, matches in BRACKETS.items()}

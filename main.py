@@ -22,6 +22,7 @@ BOOL_OPTIONS = {
     "player_details": True,
     "team_details": True,
     "bracket_do_not_convert_details": False,
+    "bracket_identify_by_arg_1": False,
     "bracket_guess_bestof": True,
     "bracket_override_with_team_match": False,
     "bracket_do_not_move_team_match": False,
