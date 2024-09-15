@@ -8,7 +8,7 @@ import random
 import re
 import requests
 import string
-from typing import Any
+from typing import Any, Callable
 
 import wikitextparser as wtp
 
@@ -1714,36 +1714,41 @@ class Converter:
 
     def arguments_to_texts(
         self,
-        arguments: list[dict[str, str]],
+        arguments: dict[str, str | bool | tuple[str, Callable] | None],
         tpl: wtp.Template,
         predicate_args: dict[str] | None = None,
         append_empty_strings: bool = False,
     ) -> list[str] | list[list[str]]:
-        texts: list[list[str]] = [[] for i in range(len(arguments))]
         predicate_args = predicate_args or {}
+        texts = [[]]
+        has_cutoff = False
 
         for x in tpl.arguments:
             found = False
             arg_name = x.name.strip()
-            for i, sub_arguments in enumerate(arguments):
-                for from_arg, to_arg in sub_arguments.items():
+            for from_arg, to_arg in arguments.items():
+                if m := re.match(rf"^{from_arg}$", arg_name):
                     if isinstance(to_arg, tuple):
                         to_arg, predicate = to_arg
                     else:
                         predicate = None
-                    if m := re.match(rf"^{from_arg}$", arg_name):
-                        if to_arg is not None and (predicate is None or predicate(m, **predicate_args)):
-                            value = clean_arg_value(x)
-                            if value or append_empty_strings:
-                                texts[i].append(f"|{re.sub(from_arg, to_arg, arg_name)}={value}")
-                        found = True
-                        break
-                if found:
+                    if to_arg is True:
+                        if not has_cutoff:
+                            texts.append([])
+                            has_cutoff = True
+                    elif to_arg is not None and (predicate is None or predicate(m, **predicate_args)):
+                        value = clean_arg_value(x)
+                        if value or append_empty_strings:
+                            texts[-1].append(f"|{re.sub(from_arg, to_arg, arg_name)}={value}")
+                    found = True
                     break
-            else:
+            if not found:
                 self.not_converted_arguments.add((tpl.normal_name(), x.name))
 
-        return texts[0] if len(arguments) == 1 else texts
+        cutoff_expected = next(iter(arguments.values())) is True
+        if cutoff_expected:
+            return texts if has_cutoff else texts + [[]]
+        return texts[0]
 
     def convert_external_cup_list(self, tpl: wtp.Template) -> str | None:
         cup_list = ExternalCupList()
