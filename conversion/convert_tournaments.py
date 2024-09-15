@@ -69,6 +69,7 @@ LEGACY_PLAYER_PREFIX_PATTERN = re.compile(
     r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|team|short|literal)?$", re.UNICODE
 )
 LEGACY_GAME_DETAILS_PATTERN = re.compile(r"^(R\d+G\d+)details$", re.UNICODE)
+PARTICIPANT_TABLE_PARTICIPANT_PATTERN = re.compile(r"^p?(\d+)$")
 
 with open("countries.json", "r") as f:
     COUNTRIES = json.load(f)
@@ -1819,7 +1820,14 @@ class Converter:
 
     def add_participants_from_participant_table(self, tpl: wtp.Template) -> list[Participant]:
         participants: list[Participant] = []
-        i = 1
+        try:
+            i = min(
+                int(m.group(1))
+                for x in tpl.arguments
+                if (m := PARTICIPANT_TABLE_PARTICIPANT_PATTERN.match(x.name.strip()))
+            )
+        except ValueError:
+            i = 1
         while (x := tpl.get_arg(str(i))) or (x := tpl.get_arg(f"p{i}")):
             p = Participant(name=clean_arg_value(x))
             if not p.name:
