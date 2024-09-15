@@ -108,6 +108,7 @@ MATCH_MAPS_TEAM_ARGUMENTS = [
         "review": "review",
         "comment": "comment",
         "(?:team|score)[12]": None,
+        "bestof": ("bestof", lambda m, ignore_bestof: not ignore_bestof),
     },
     {
         "vod": "vod",

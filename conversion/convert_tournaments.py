@@ -1093,12 +1093,12 @@ class Converter:
 
         # Guess bestof (if enabled)
         bestof = None
+        bestof_text_inserted = False
         if self.options["match_maps_guess_bestof"]:
             try:
                 num_scores = [int(score) for score in scores]
             except:
-                if x := tpl.get_arg("bestof"):
-                    texts.insert(0, f"|bestof={clean_arg_value(x)}")
+                pass
             else:
                 if num_scores[0] == num_scores[1]:
                     self.info += f"WARN: bestof cannot be guessed for score {'-'.join(scores)}" "\n"
@@ -1106,15 +1106,19 @@ class Converter:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
                         texts.insert(0, f"|bestof={bestof}")
+                        bestof_text_inserted = True
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
+                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}"
+                                "\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
         # If bestof is set, we do not copy the winner argument
         start_texts, end_texts = self.arguments_to_texts(
-            MATCH_MAPS_ARGUMENTS, tpl, {"ignore_bestof": bestof is not None, "vodgames_processed": vodgames_processed}
+            MATCH_MAPS_ARGUMENTS,
+            tpl,
+            {"ignore_bestof": bestof_text_inserted, "vodgames_processed": vodgames_processed},
         )
         # Add "dateheader=true" after a "date=" argument
         if (index := next((i for i, e in enumerate(start_texts) if e.startswith("|date=")), None)) is not None:
@@ -1147,13 +1151,14 @@ class Converter:
             if x := tpl.get_arg(f"score{i}"):
                 scores[i - 1] = clean_arg_value(x)
 
+        # Guess bestof (if enabled)
         bestof = None
+        bestof_text_inserted = False
         if self.options["match_maps_guess_bestof"]:
             try:
                 num_scores = [int(score) for score in scores]
             except:
-                if x := tpl.get_arg("bestof"):
-                    texts.insert(0, f"|bestof={clean_arg_value(x)}")
+                pass
             else:
                 if num_scores[0] == num_scores[1]:
                     self.info += f"WARN: bestof cannot be guessed for score {'-'.join(scores)}" "\n"
@@ -1161,13 +1166,17 @@ class Converter:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
                         texts.insert(0, f"|bestof={bestof}")
+                        bestof_text_inserted = True
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}" "\n"
+                                f"WARN: In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}"
+                                "\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
-        start_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_TEAM_ARGUMENTS, tpl)
+        start_texts, end_texts = self.arguments_to_texts(
+            MATCH_MAPS_TEAM_ARGUMENTS, tpl, {"ignore_bestof": bestof_text_inserted}
+        )
         texts += start_texts
 
         if x := tpl.get_arg("details"):
@@ -1203,8 +1212,7 @@ class Converter:
         else:
             return None
 
-        if x := tpl.get_arg("id"):
-            id_ = clean_arg_value(x)
+        id_ = clean_arg_value(tpl.get_arg("id"))
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
         unknown_args = []
         for x in tpl.arguments:
@@ -1225,7 +1233,10 @@ class Converter:
             ) and m.group(1) not in LEGACY_PLAYER_AND_GAME_PREFIXES[legacy_bracket_name]:
                 unknown_args.append(arg_name)
         if unknown_args:
-            self.info += f"WARN: Argument(s) unknown for bracket {legacy_bracket_name} ({len(unknown_args)}): {', '.join(unknown_args)}" "\n"
+            self.info += (
+                f"WARN: [Bracket {id_}] Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}"
+                "\n"
+            )
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
 
@@ -1299,6 +1310,7 @@ class Converter:
                 continue
 
             bestof = None
+            bestof_text_inserted = False
             if (
                 self.options["bracket_guess_bestof"]
                 and all(score == "" for score in scores2)
@@ -1307,30 +1319,36 @@ class Converter:
                 try:
                     num_scores = [int(score) for score in scores]
                 except:
-                    if x := tpl.get_arg("bestof"):
-                        match_texts0.insert(0, f"|bestof={clean_arg_value(x)}")
+                    pass
                 else:
                     if num_scores[0] == num_scores[1]:
-                        self.info += f"WARN: In {match_id}, bestof cannot be guessed for score {'-'.join(scores)}" "\n"
+                        self.info += (
+                            f"WARN: [Bracket {id_}][{match_id}] bestof cannot be guessed for score {'-'.join(scores)}"
+                            "\n"
+                        )
                     else:
                         bestof = max(num_scores) * 2 - 1
                         if bestof != prev_bestof:
                             match_texts0.append(f"|bestof={bestof}")
+                            bestof_text_inserted = True
                             if prev_bestof is not None:
-                                self.info += f"WARN: In {match_id}, change of bestof from {prev_bestof} to {bestof}" "\n"
+                                self.info += (
+                                    f"WARN: [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}"
+                                    "\n"
+                                )
                             prev_bestof = bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.info += f"WARN: In {match_id}, {player_prefixes[0]}win={wins[0]}\n"
+                        self.info += f"WARN: In {id_}_{match_id}, {player_prefixes[0]}win={wins[0]}\n"
                     if players[1].name == "BYE":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.info += f"WARN: In {match_id}, {player_prefixes[1]}win={wins[1]}\n"
+                        self.info += f"WARN: In {id_}_{match_id}, {player_prefixes[1]}win={wins[1]}\n"
                     if players[0].name == "BYE":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
@@ -1403,8 +1421,16 @@ class Converter:
 
                 match_texts1 += summary_end_texts
 
-                if summary_tpl.get_arg("bestof"):
-                    match_texts0 = [text for text in match_texts0 if not text.startswith("|bestof=")]
+                if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
+                    if bestof_text_inserted:
+                        match_texts0 = [text for text in match_texts0 if not text.startswith("|bestof")]
+                    match_texts0.insert(0, f"|bestof={bestof}")
+                    try:
+                        prev_bestof = int(bestof)
+                    except:
+                        self.info += (
+                            f"WARN: [Bracket {id_}][{match_id}] Existing bestof is not a decimal integer value" "\n"
+                        )
             elif not self.options["bracket_do_not_move_match_summary"] and (
                 ms_texts := self.find_match_summary(players)
             ):
