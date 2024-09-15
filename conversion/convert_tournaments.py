@@ -1115,7 +1115,7 @@ class Converter:
                         self.match_maps_prev_bestof = bestof
 
         # If bestof is set, we do not copy the winner argument
-        start_texts, end_texts = self.arguments_to_texts(
+        start_texts, mid_texts, end_texts = self.arguments_to_texts(
             MATCH_MAPS_ARGUMENTS,
             tpl,
             {"ignore_bestof": bestof_text_inserted, "vodgames_processed": vodgames_processed},
@@ -1131,7 +1131,8 @@ class Converter:
                 match_list_vod_arg = "vod"
             start_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
             self.match_list_vod = None
-        texts += start_texts
+
+        texts = start_texts + texts + mid_texts
 
         if map_texts and (has_a_non_empty_map or sum(map_scores) == 0):
             texts += map_texts
@@ -1727,14 +1728,15 @@ class Converter:
 
     def arguments_to_texts(
         self,
-        arguments: dict[str, str | bool | tuple[str, Callable] | None],
+        wrapped_arguments: tuple[int, dict[str, str | int | tuple[str, Callable] | None]],
         tpl: wtp.Template,
         predicate_args: dict[str] | None = None,
         append_empty_strings: bool = False,
     ) -> list[str] | list[list[str]]:
+        part_count, arguments = wrapped_arguments
         predicate_args = predicate_args or {}
-        texts = [[]]
-        has_cutoff = False
+        texts = [[] for _ in range(part_count)]
+        part = 0
 
         for x in tpl.arguments:
             found = False
@@ -1745,22 +1747,19 @@ class Converter:
                         to_arg, predicate = to_arg
                     else:
                         predicate = None
-                    if to_arg is True:
-                        if not has_cutoff:
-                            texts.append([])
-                            has_cutoff = True
+                    if isinstance(to_arg, int):
+                        part = to_arg
                     elif to_arg is not None and (predicate is None or predicate(m, **predicate_args)):
                         value = clean_arg_value(x)
                         if value or append_empty_strings:
-                            texts[-1].append(f"|{re.sub(from_arg, to_arg, arg_name)}={value}")
+                            texts[part].append(f"|{re.sub(from_arg, to_arg, arg_name)}={value}")
                     found = True
                     break
             if not found:
                 self.not_converted_arguments.add((tpl.normal_name(), x.name))
 
-        cutoff_expected = next(iter(arguments.values())) is True
-        if cutoff_expected:
-            return texts if has_cutoff else texts + [[]]
+        if part_count > 1:
+            return texts
         return texts[0]
 
     def convert_external_cup_list(self, tpl: wtp.Template) -> str | None:
