@@ -1214,7 +1214,7 @@ class Converter:
             return None
 
         if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
-            self.info += f"⚠️ [Bracket {id_}] {bracket_name} is not the new name expected for {legacy_bracket_name}\n"
+            self.info += f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}\n"
 
         if self.options["bracket_identify_by_arg_1"]:
             if bracket_name in BRACKET_LEGACY_NAMES:
@@ -1454,7 +1454,7 @@ class Converter:
                             and "\n" in (prev_arg := prev_arguments[a].value)
                             and (m := END_OF_PARAM_VALUE_PATTERN.search(prev_arg))
                         ):
-                            bracket_texts.append(remove_start_and_end_newlines(m.group(0)))
+                            bracket_texts.append(remove_start_and_end_newlines(m.group(0).rstrip("\t ")))
                             break
                     else:
                         if prev_round_number:
@@ -1498,7 +1498,7 @@ class Converter:
 
         id_ = clean_arg_value(tpl.get_arg("id"))
         if bracket_name != BRACKET_NEW_NAMES[legacy_name]:
-            self.info += f"⚠️ [Bracket {id_}] {bracket_name} is not the new name expected for {legacy_name}\n"
+            self.info += f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_name}\n"
 
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
 
