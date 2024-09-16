@@ -1124,8 +1124,10 @@ class Converter:
             {"ignore_bestof": bestof_text_inserted, "vodgames_processed": vodgames_processed},
         )
         # Add "dateheader=true" after a "date=" argument
-        if (index := next((i for i, e in enumerate(start_texts) if e.startswith("|date=")), None)) is not None:
-            start_texts.insert(index + 1, "|dateheader=true")
+        for x_texts in (start_texts, mid_texts, end_texts):
+            if (index := next((i for i, e in enumerate(x_texts) if e.startswith("|date=")), None)) is not None:
+                x_texts.insert(index + 1, "|dateheader=true")
+                break
         # Add vod from Match list start if there is one
         if self.match_list_vod:
             if (x := tpl.get_arg("vod")) and clean_arg_value(x):
