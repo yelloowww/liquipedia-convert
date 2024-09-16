@@ -24,9 +24,10 @@
 
   {%- include 'templates/convert_form.html' %}
 
-  <textarea rows="2" cols="130">{{info}}</textarea>
-
-  <textarea rows="50" cols="130" autofocus>{{converted}}</textarea>
+  <div id="result-container">
+    <textarea rows="4" cols="130">{{info}}</textarea>
+    <textarea rows="50" cols="130" autofocus>{{converted}}</textarea>
+  </div>
 </body>
 
 </html>
