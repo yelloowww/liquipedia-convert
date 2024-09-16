@@ -141,6 +141,18 @@
             <input type="checkbox" name="match_maps_guess_bestof" id="match_maps_guess_bestof"{% if options['match_maps_guess_bestof'] %}checked{% endif %}/>
             <label for="match_maps_guess_bestof">Add bestof parameter (guessed from the score of the winner)</label>
           </div>
+          <div>
+            <input type="radio" name="match_maps_player_details" id="match_maps_player_details_remove_if_stored" value="remove_if_stored"{% if options['match_maps_player_details'] == 'remove_if_stored' or not options['match_maps_player_details'] %}checked{% endif %}/>
+            <label for="match_maps_player_details_remove_if_stored">Remove flag and race details if player info is stored before</label>
+          </div>
+          <div>
+            <input type="radio" name="match_maps_player_details" id="match_maps_player_details_keep" value="keep"{% if options['match_maps_player_details'] == 'keep' %}checked{% endif %}/>
+            <label for="match_maps_player_details_keep">Keep flag and race details (even if player info is stored before)</label>
+          </div>
+          <div>
+            <input type="radio" name="match_maps_player_details" id="match_maps_player_details_remove_always" value="remove_always"{% if options['match_maps_player_details'] == 'remove_always' %}checked{% endif %}/>
+            <label for="bracket_details_remove_always">Remove flag and race details always</label>
+          </div>
         </fieldset>
 
         <fieldset>

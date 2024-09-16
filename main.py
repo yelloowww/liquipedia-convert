@@ -47,6 +47,7 @@ STRING_OPTIONS = {
     "import_limit_fixed_val": "",
     "bracket_match_width": "",
     "bracket_details": "remove_if_stored",
+    "match_maps_player_details": "remove_if_stored",
     "group_matches_of_section": "",
     "group_team_matches_of_section": "",
     "group_team_matches_mode": "",

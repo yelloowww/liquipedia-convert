@@ -1073,15 +1073,18 @@ class Converter:
             if x := tpl.get_arg(f"p{i}score"):
                 scores[i - 1] = clean_arg_value(x)
             if player.name:
-                found, offrace = self.look_for_player(player)
                 text = f"|opponent{i}={{{{1Opponent|{player.name}"
-                if not found:
-                    if player.flag:
-                        text += f"|flag={player.flag}"
-                    if player.race:
+                if self.options["match_maps_player_details"] == "remove_if_stored":
+                    found, offrace = self.look_for_player(player)
+                    if not found:
+                        text += f"|flag={player.flag}|race={player.race}"
+                    elif offrace:
                         text += f"|race={player.race}"
-                elif offrace:
-                    text += f"|race={player.race}"
+                elif self.options["match_maps_player_details"] == "keep":
+                    if tpl.get_arg(f"player{i}flag"):
+                        text += f"|flag={player.flag}"
+                    if tpl.get_arg(f"player{i}race"):
+                        text += f"|race={player.race}"
                 if scores[i - 1]:
                     text += f"|score={scores[i - 1]}"
                     if map_texts and str(map_scores[i - 1]) != scores[i - 1]:
