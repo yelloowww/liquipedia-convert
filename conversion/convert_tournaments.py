@@ -28,6 +28,7 @@ HEADERS = {
 }
 WIKITEXT_COMMENT_PATTERN = re.compile(r"<!--((?!-->).)*-->", re.UNICODE)
 NOTE_PATTERN = re.compile(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
+ASTERISK_PATTERN = re.compile(r"\*+$", re.UNICODE)
 RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"''\(\d*\)''", re.UNICODE)
 PIPE_PATTERN = re.compile(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
 SECTION_PATTERN = re.compile(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
@@ -506,6 +507,8 @@ class Converter:
         has_a_race_cell = False
         has_race_count = False
         has_section_count = False
+        notes = []
+        players_with_asterisk = {}
 
         if table.tables or not (rows := table.data(span=True)) or max(len(row) for row in rows) > 4:
             return None
@@ -586,31 +589,44 @@ class Converter:
                         p.link = ""
             if m := NOTE_PATTERN.search(val):
                 p.note = m.group(1)
+                notes.append(p.note)
+            if m := ASTERISK_PATTERN.search(val):
+                players_with_asterisk[p.name] = len(m.group(0))
             sections[-1].participants.append(p)
 
         # Exit the function if the table is not a participant table
         if not ((has_a_teampart_tpl and has_a_player) or has_a_race_cell):
             return None
 
+        # This is a valid participant table
+        self.prize_pool_tables_processed += 1
+
+        # If this is the first table and the user has decided not to convert it, then we exit early
+        if self.options["participant_table_do_not_convert_first"] and self.prize_pool_tables_processed == 1:
+            return None
+
+        for section in sections:
+            self.participants |= {p.name: p for p in section.participants}
+        if table.comments:
+            self.info += "⚠️ Comments in participant table will be lost\n"
+
+        # Set the note property for players with one or more asterisks
+        if players_with_asterisk:
+            self.info += "⚠️ Asterisks converted to notes in participant table\n"
+            for name, asterisk_count in players_with_asterisk.items():
+                n = asterisk_count
+                while str(n) in notes:
+                    n += 1
+                self.participants[name].note = str(n)
+                notes.append(p.note)
+
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
             and self.prize_pool_tables_processed == 0
         ):
-            result = self.prize_pool_table_from_sections(sections)
-        elif self.options["participant_table_do_not_convert_first"] and self.prize_pool_tables_processed == 0:
-            result = None
-        else:
-            result = self.participants_table_from_sections(sections, has_race_count, has_section_count)
-        self.prize_pool_tables_processed += 1
+            return self.prize_pool_table_from_sections(sections)
 
-        if result is not None:
-            for section in sections:
-                self.participants |= {p.name: p for p in section.participants}
-
-        if table.comments and result is not None:
-            self.info += "⚠️ Comments in participant table will be lost\n"
-
-        return result
+        return self.participants_table_from_sections(sections, has_race_count, has_section_count)
 
     def participants_table_from_sections(
         self, sections: list[Section], enable_count: bool = False, enable_section_count: bool = False
@@ -1214,7 +1230,9 @@ class Converter:
             return None
 
         if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
-            self.info += f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}\n"
+            self.info += (
+                f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}\n"
+            )
 
         if self.options["bracket_identify_by_arg_1"]:
             if bracket_name in BRACKET_LEGACY_NAMES:
@@ -1223,12 +1241,11 @@ class Converter:
                 self.info += f"⚠️ [Bracket {id_}] Bracket {bracket_name} unknown\n"
                 return None
 
-        if legacy_bracket_name in BRACKETS:
-            conversion = BRACKETS[legacy_bracket_name]
-        elif legacy_bracket_name:
-            self.info += f"⚠️ [Bracket {id_}] Bracket {legacy_bracket_name} unknown\n"
+        if legacy_bracket_name not in BRACKETS:
+            self.info += f'⚠️ [Bracket {id_}] Bracket "{legacy_bracket_name}" unknown\n'
             return None
 
+        conversion = BRACKETS[legacy_bracket_name]
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
         unknown_args = []
         for x in tpl.arguments:
