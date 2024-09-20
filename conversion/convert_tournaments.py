@@ -825,20 +825,27 @@ class Converter:
         while True:
             x = tpl.get_arg(f"map{i}")
             if x:
-                map = clean_arg_value(x)
-                if m := PIPE_PATTERN.match(map):
-                    map = m.group(2)
-                if map in ("TBD", "TBA"):
-                    map = ""
-                if map:
+                map_ = clean_arg_value(x)
+                if m := PIPE_PATTERN.match(map_):
+                    map_, map_display_name = m.groups()
+                else:
+                    map_display_name = ""
+                if map_ in ("TBD", "TBA"):
+                    map_ = ""
+                if map_:
                     has_set_map = True
             else:
-                map = ""
+                map_ = ""
+                map_display_name = ""
             x_win = tpl.get_arg(f"win{i}")
             if x or x_win:
                 winner = clean_arg_value(x_win)
                 winner = "" if winner == "0" else winner
-                texts.append(f"|map{i}={{{{Map|map={map}|winner={winner}}}}}")
+                text = f"|map{i}={{{{Map|map={map_}"
+                if map_display_name:
+                    text += f"|mapDisplayName={map_display_name}"
+                text += f"|winner={winner}}}}}"
+                texts.append()
                 i += 1
             else:
                 break
@@ -1056,13 +1063,22 @@ class Converter:
             x = tpl.get_arg(f"map{i}")
             x_win = tpl.get_arg(f"map{i}win")
             if x or x_win:
-                map_name = clean_arg_value(x)
-                if map_name == "Unknown":
-                    map_name = ""
+                map_ = clean_arg_value(x)
+                if m := PIPE_PATTERN.match(map_):
+                    map_, map_display_name = m.groups()
+                else:
+                    map_display_name = ""
+                if map_ == "Unknown":
+                    map_ = ""
                 map_winner = clean_arg_value(x_win)
-                map_text = f"|map{i}={{{{Map|map={map_name}|winner={map_winner}"
+                map_text = f"|map{i}={{{{Map|map={map_}"
+                if map_display_name:
+                    map_text += f"|mapDisplayName={map_display_name}"
+                map_text += f"|winner={map_winner}"
+                map_has_race = False
                 for j in (1, 2):
                     if x := tpl.get_arg(f"map{i}p{j}race"):
+                        map_has_race = True
                         map_text += f"|t{j}p1race={clean_arg_value(x)}"
                 x_vod = tpl.get_arg(f"vodgame{i}")
                 if vod := clean_arg_value(x_vod):
@@ -1070,7 +1086,7 @@ class Converter:
                     vodgames_processed.append(i)
                 map_text += "}}"
                 map_texts.append(map_text)
-                if map_name:
+                if map_ or vod or map_has_race:
                     has_a_non_empty_map = True
                 if map_winner in ("1", "2"):
                     map_scores[int(map_winner) - 1] += 1
@@ -1413,11 +1429,18 @@ class Converter:
                     x = summary_tpl.get_arg(f"map{i}")
                     x_win = summary_tpl.get_arg(f"map{i}win")
                     if x or x_win:
-                        map_name = clean_arg_value(x)
-                        if map_name == "Unknown":
-                            map_name = ""
+                        map_ = clean_arg_value(x)
+                        if m := PIPE_PATTERN.match(map_):
+                            map_, map_display_name = m.groups()
+                        else:
+                            map_display_name = ""
+                        if map_ == "Unknown":
+                            map_ = ""
                         x_vod = summary_tpl.get_arg(f"vodgame{i}")
-                        map_text = f"|map{i}={{{{Map|map={map_name}|winner={clean_arg_value(x_win)}"
+                        map_text = f"|map{i}={{{{Map|map={map_}"
+                        if map_display_name:
+                            map_text += f"|mapDisplayName={map_display_name}"
+                        map_text += f"|winner={clean_arg_value(x_win)}"
                         for j in (1, 2):
                             if x := summary_tpl.get_arg(f"map{i}p{j}race"):
                                 map_text += f"|t{j}p1race={clean_arg_value(x)}"
