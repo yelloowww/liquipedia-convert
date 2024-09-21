@@ -1348,6 +1348,7 @@ class Converter:
                         text += f"|score3={scores3[i - 1]}"
                     text += "}}"
                     if comments:
+                        self.info += f"⚠️ [Bracket {id_}][{match_id}] Comments moved to the end of the line\n"
                         text += f" {comments}"
                     match_texts1.append(text)
 
