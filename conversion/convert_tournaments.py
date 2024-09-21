@@ -300,12 +300,12 @@ class Converter:
                 self.match_list_text = "{{Matchlist" + "".join(texts) + "\n"
                 self.match_list_start_pos = tpl.span[0]
                 self.match_texts = []
+                self.match_list_id = clean_arg_value(tpl.get_arg("id"))
                 self.match_list_comments = []
                 self.match_maps_prev_bestof = None
                 if (x := tpl.get_arg("vod")) and (vod := clean_arg_value(x)):
                     self.match_list_vod = vod
-                    id_ = clean_arg_value(tpl.get_arg("id"))
-                    self.info += f"⚠️ vod in Match list start {id_} moved to the first match of the list\n"
+                    self.info += f"⚠️ vod in Match list start {self.match_list_id} moved to the first match of the list\n"
                 else:
                     self.match_list_vod = None
             case "Match maps":
@@ -1053,6 +1053,9 @@ class Converter:
         texts: list[str] = []
         scores = ["", ""]
 
+        if tpl.comments:
+            self.info += f"⚠️ [Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}] Comments will be lost\n"
+
         # Parse maps first
         map_texts = []
         map_scores = [0, 0]
@@ -1182,6 +1185,9 @@ class Converter:
         teams = ["", ""]
         texts: list[str] = []
         scores = ["", ""]
+
+        if tpl.comments:
+            self.info += f"⚠️ [Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}] Comments will be lost\n"
 
         for i in range(1, 3):
             if x := tpl.get_arg(f"team{i}"):
