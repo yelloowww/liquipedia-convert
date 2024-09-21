@@ -28,7 +28,7 @@ HEADERS = {
 }
 WIKITEXT_COMMENT_PATTERN = re.compile(r"<!--((?!-->).)*-->", re.UNICODE)
 NOTE_PATTERN = re.compile(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
-ASTERISK_PATTERN = re.compile(r"\*+$", re.UNICODE)
+ASTERISK_PATTERN = re.compile(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
 RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"''\(\d*\)''", re.UNICODE)
 PIPE_PATTERN = re.compile(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
 SECTION_PATTERN = re.compile(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
@@ -591,7 +591,7 @@ class Converter:
                 p.note = m.group(1)
                 notes.append(p.note)
             if m := ASTERISK_PATTERN.search(val):
-                players_with_asterisk[p.name] = len(m.group(0))
+                players_with_asterisk[p.name] = len(m.group(1))
             sections[-1].participants.append(p)
 
         # Exit the function if the table is not a participant table
