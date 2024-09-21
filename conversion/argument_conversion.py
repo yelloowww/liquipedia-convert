@@ -145,7 +145,6 @@ BRACKET_MATCH_SUMMARY_ARGUMENTS = _wrap_arguments(
         "map\\d+(?:win)?": 1,
         "map\\d+p[12]race": 1,
         "veto(player)?(\\d+)": 1,
-        "vodgame(\\d+)": 1,
         # Other arguments
         "bestof": None,
         "date": "date",
@@ -165,6 +164,7 @@ BRACKET_MATCH_SUMMARY_ARGUMENTS = _wrap_arguments(
         "stream": "stream",
         "comment": "comment",
         "vod": "vod",
+        "vodgame(\\d+)": "vodgame\\1",
     }
 )
 TEAM_MATCH_ARGUMENTS = _wrap_arguments(

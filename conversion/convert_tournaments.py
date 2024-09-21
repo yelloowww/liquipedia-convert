@@ -1447,11 +1447,14 @@ class Converter:
                         map_text = f"|map{i}={{{{Map|map={map_}"
                         if map_display_name:
                             map_text += f"|mapDisplayName={map_display_name}"
-                        map_text += f"|winner={clean_arg_value(x_win)}"
+                        winner = clean_arg_value(x_win)
+                        map_text += f"|winner={winner}"
+                        map_has_race = False
                         for j in (1, 2):
                             if x := summary_tpl.get_arg(f"map{i}p{j}race"):
+                                map_has_race = True
                                 map_text += f"|t{j}p1race={clean_arg_value(x)}"
-                        if vod := clean_arg_value(x_vod):
+                        if (map_ or winner or map_has_race) and (vod := clean_arg_value(x_vod)):
                             map_text += f"|vod={vod}"
                             vodgames_moved_to_map.append(i)
                         map_text += "}}"
