@@ -1277,7 +1277,7 @@ class Converter:
             if m := LEGACY_ROUND_HEADER_PATTERN.match(arg_name):
                 if legacy_bracket_name in ROUND_HEADERS and arg_name in ROUND_HEADERS[legacy_bracket_name]:
                     new_arg = ROUND_HEADERS[legacy_bracket_name][arg_name]
-                    new_value = clean_arg_value(x).removeprefix("'''").removesuffix("'''")
+                    new_value = clean_arg_value(x).replace("'''", "")
                     if isinstance(new_arg, tuple):
                         bracket_texts += [f"|{new_arg_name}={new_value}" for new_arg_name in new_arg]
                     else:
