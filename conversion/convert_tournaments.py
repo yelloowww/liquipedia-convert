@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime
+from itertools import chain
 import json
 from pathlib import Path
 from os import makedirs
@@ -305,7 +306,9 @@ class Converter:
                 self.match_maps_prev_bestof = None
                 if (x := tpl.get_arg("vod")) and (vod := clean_arg_value(x)):
                     self.match_list_vod = vod
-                    self.info += f"⚠️ vod in Match list start {self.match_list_id} moved to the first match of the list\n"
+                    self.info += (
+                        f"⚠️ vod in Match list start {self.match_list_id} moved to the first match of the list\n"
+                    )
                 else:
                     self.match_list_vod = None
             case "Match maps":
@@ -507,7 +510,7 @@ class Converter:
         has_a_race_cell = False
         has_race_count = False
         has_section_count = False
-        notes = []
+        notes = set()
         players_with_asterisk = {}
 
         if table.tables or not (rows := table.data(span=True)) or max(len(row) for row in rows) > 4:
@@ -587,9 +590,9 @@ class Converter:
                     p.name = m.group(1)
                     if p.link == p.name:
                         p.link = ""
-            if m := NOTE_PATTERN.search(val):
-                p.note = m.group(1)
-                notes.append(p.note)
+            if notes_m := NOTE_PATTERN.findall(val):
+                p.notes = list(chain.from_iterable(n.split(",") for n in notes_m))
+                notes |= set(p.notes)
             if m := ASTERISK_PATTERN.search(val):
                 players_with_asterisk[p.name] = len(m.group(1))
             sections[-1].participants.append(p)
@@ -617,8 +620,7 @@ class Converter:
                 n = asterisk_count
                 while str(n) in notes:
                     n += 1
-                self.participants[name].note = str(n)
-                notes.append(p.note)
+                self.participants[name].notes.append(str(n))
 
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
@@ -650,8 +652,8 @@ class Converter:
                     result += f'|p{i}team={p.team or ""}'
                 if p.dq:
                     result += f"|p{i}dq=1"
-                if p.note:
-                    result += f"|p{i}note={p.note}"
+                if p.notes:
+                    result += f"|p{i}note={','.join(p.notes)}"
                 result += "\n"
             if section.title:
                 result += "}}\n"

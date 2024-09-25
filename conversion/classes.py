@@ -9,7 +9,7 @@ class Participant:
     race: str = ""
     team: str = ""
     dq: bool = False
-    note: str = ""
+    notes: list[str] = field(default_factory=list)
 
 
 @dataclass
