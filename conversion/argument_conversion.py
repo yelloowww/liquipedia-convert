@@ -155,6 +155,7 @@ BRACKET_MATCH_SUMMARY_ARGUMENTS = _wrap_arguments(
         "afreecatv": "afreecatv",
         "dailymotion": "dailymotion",
         "douyu": "douyu",
+        "trovo": "trovo",
         "youtube": "youtube",
         "lrthread": "lrthread",
         "preview": "preview",
