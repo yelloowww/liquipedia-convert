@@ -22,6 +22,8 @@ def convert_team_card(original: str) -> str:
     state = 0
     start = -1
     for tbl in parsed.tables:
+        start_row = 0
+
         if state == 0:
             cell0 = tbl.cells(row=0, column=0)
             team_name = ""
@@ -35,9 +37,11 @@ def convert_team_card(original: str) -> str:
                 team_name = cell0.value.strip()
             start = tbl.span[0]
             state = 1
-        elif state == 1:
+            start_row = 1
+
+        if state == 1:
             players = []
-            cells = tbl.cells(span=False)
+            cells = tbl.cells(span=False)[start_row:]
             for row, col, c in (
                 (row, col, c) for row, row_cells in enumerate(cells) for col, c in enumerate(row_cells)
             ):
