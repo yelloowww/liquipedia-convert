@@ -61,7 +61,7 @@ PLACE_PATTERN = re.compile(r"(\d+)$", re.UNICODE)
 FLAG_TEMPLATE_PATTERN = re.compile(r"^Flag/(.+)$", re.UNICODE)
 LEGACY_ROUND_HEADER_PATTERN = re.compile(r"^(?:([RL])\d+|Q)$", re.UNICODE)
 SCORE_ADVANTAGE_PATTERN = re.compile(
-    r"<abbr title=\"Winner's bracket advantage of 1 game\"> *(\d+) *</abbr>", re.UNICODE
+    r"<abbr title=\"Winner(?:'s|s') [bB]racket advantage of 1 (?:map|game)\"> *(\d+) *</abbr>", re.UNICODE
 )
 STRIKETHROUGH_PATTERN = re.compile(r"<s>((?:(?!<\/s>).)+)</s>", re.UNICODE)
 NOINCLUDE_LEGACY_BRACKET_PATTERN = re.compile(
