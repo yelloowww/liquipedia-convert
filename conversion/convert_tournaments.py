@@ -633,6 +633,8 @@ class Converter:
     def participants_table_from_sections(
         self, sections: list[Section], enable_count: bool = False, enable_section_count: bool = False
     ) -> str:
+        has_a_non_empty_team = any(p.team for section in sections for p in section.participants)
+
         result = "{{ParticipantTable"
         if enable_count:
             result += "|count=1"
@@ -648,7 +650,7 @@ class Converter:
                     result += f"|p{i}link={p.link}"
                 if self.options["player_details"]:
                     result += f"|p{i}flag={p.flag}|p{i}race={p.race}"
-                if self.options["team_details"]:
+                if self.options["team_details"] and has_a_non_empty_team:
                     result += f'|p{i}team={p.team or ""}'
                 if p.dq:
                     result += f"|p{i}dq=1"
