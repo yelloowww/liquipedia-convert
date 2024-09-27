@@ -624,7 +624,7 @@ class Converter:
 
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
-            and self.prize_pool_tables_processed == 0
+            and self.prize_pool_tables_processed == 1
         ):
             return self.prize_pool_table_from_sections(sections)
 
@@ -1429,11 +1429,11 @@ class Converter:
                 summary_texts, summary_end_texts = self.arguments_to_texts(
                     BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
                 )
-                match_texts1 += summary_texts
 
                 if any("advantage" in s for s in summary_texts):
                     self.info += f"⚠️ Possible advantage in {game_prefix}\n"
 
+                map_texts = []
                 vodgames_moved_to_map = []
                 i = 1
                 while True:
@@ -1462,15 +1462,10 @@ class Converter:
                             map_text += f"|vod={vod}"
                             vodgames_moved_to_map.append(i)
                         map_text += "}}"
-                        match_texts1.append(map_text)
+                        map_texts.append(map_text)
                         i += 1
                     else:
                         break
-                summary_end_texts = [
-                    text
-                    for text in summary_end_texts
-                    if not any(text.startswith(f"|vodgame{i}=") for i in vodgames_moved_to_map)
-                ]
 
                 i = 1
                 while True:
@@ -1484,7 +1479,14 @@ class Converter:
                     else:
                         break
 
+                match_texts1 += summary_texts
+                match_texts1 += map_texts
                 match_texts1 += summary_end_texts
+                match_texts1 = [
+                    text
+                    for text in match_texts1
+                    if not any(text.startswith(f"|vodgame{i}=") for i in vodgames_moved_to_map)
+                ]
 
                 if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
                     if bestof_text_inserted:
