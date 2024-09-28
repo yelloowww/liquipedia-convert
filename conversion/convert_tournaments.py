@@ -1068,8 +1068,9 @@ class Converter:
         texts: list[str] = []
         scores = ["", ""]
 
+        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}]"
         if tpl.comments:
-            self.info += f"⚠️ [Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}] Comments will be lost\n"
+            self.info += f"⚠️ {info_id_text} Comments will be lost\n"
 
         # Parse maps first
         map_texts = []
@@ -1138,7 +1139,7 @@ class Converter:
                 if scores[i - 1]:
                     text += f"|score={scores[i - 1]}"
                     if map_texts and str(map_scores[i - 1]) != scores[i - 1]:
-                        self.info += f"⚠️ Discrepancy between map score and score ({player.name})\n"
+                        self.info += f"⚠️ {info_id_text} Discrepancy between map score and score ({player.name})\n"
                 elif map_texts and not has_a_non_empty_map and sum(map_scores) > 0:
                     scores[i - 1] = str(map_scores[i - 1])
                     text += f"|score={scores[i - 1]}"
@@ -1155,7 +1156,9 @@ class Converter:
                 pass
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += f"⚠️ bestof cannot be guessed for score {'-'.join(scores)}\n"
+                    self.info += (
+                        f"⚠️ {info_id_text} bestof cannot be guessed for score {'-'.join(str(n) for n in num_scores)}\n"
+                    )
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
@@ -1163,7 +1166,7 @@ class Converter:
                         bestof_text_inserted = True
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"⚠️ In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
+                                f"⚠️ {info_id_text} Change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
@@ -1201,8 +1204,9 @@ class Converter:
         texts: list[str] = []
         scores = ["", ""]
 
+        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}]"
         if tpl.comments:
-            self.info += f"⚠️ [Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}] Comments will be lost\n"
+            self.info += f"⚠️ {info_id_text} Comments will be lost\n"
 
         for i in range(1, 3):
             if x := tpl.get_arg(f"team{i}"):
@@ -1220,7 +1224,7 @@ class Converter:
                 pass
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += f"⚠️ bestof cannot be guessed for score {'-'.join(scores)}\n"
+                    self.info += f"⚠️ {info_id_text} bestof cannot be guessed for score {'-'.join(scores)}\n"
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
@@ -1228,7 +1232,7 @@ class Converter:
                         bestof_text_inserted = True
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"⚠️ In Match list, change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
+                                f"⚠️ {info_id_text} Change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
                             )
                         self.match_maps_prev_bestof = bestof
 
