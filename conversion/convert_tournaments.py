@@ -1113,6 +1113,18 @@ class Converter:
             else:
                 break
 
+        i = 1
+        while True:
+            x = tpl.get_arg(f"veto{i}")
+            x_player = tpl.get_arg(f"vetoplayer{i}")
+            if x or x_player:
+                map_texts.append(
+                    f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}"
+                )
+                i += 1
+            else:
+                break
+
         # Parse players
         for i, player in enumerate(players, start=1):
             if x := tpl.get_arg(f"player{i}"):

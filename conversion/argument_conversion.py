@@ -86,6 +86,7 @@ MATCH_MAPS_ARGUMENTS = _wrap_arguments(
         "p[12]score": 1,
         "map\\d+(?:win)?": 2,
         "map\\d+p[12]race": 2,
+        "veto(player)?(\\d+)": 2,
         # Other arguments
         "date": "date",
         "finished": "finished",
