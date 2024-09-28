@@ -1146,12 +1146,15 @@ class Converter:
                 text += "}}"
                 texts.append(text)
 
+        # Is it a walkover?
+        is_walkover = clean_arg_value(tpl.get_arg("walkover")) in ("1", "2") or set(scores) == {"W", "L"}
+
         # Guess bestof (if enabled)
         bestof = None
         bestof_text_inserted = False
-        if self.options["match_maps_guess_bestof"]:
+        if not is_walkover and self.options["match_maps_guess_bestof"]:
             try:
-                num_scores = [int(score) for score in scores]
+                num_scores = [int(score) for score in scores] if any(scores) else map_scores
             except:
                 pass
             else:
@@ -1170,12 +1173,15 @@ class Converter:
                             )
                         self.match_maps_prev_bestof = bestof
 
-        # If bestof is set, we do not copy the winner argument
-        start_texts, mid_texts, end_texts = self.arguments_to_texts(
-            MATCH_MAPS_ARGUMENTS,
-            tpl,
-            {"ignore_bestof": bestof_text_inserted, "vodgames_processed": vodgames_processed},
-        )
+        # If bestof is set, we do not copy the winner/bestof arguments
+        ignore_list = []
+        if bestof or is_walkover:
+            ignore_list.append("winner")
+        if bestof_text_inserted:
+            ignore_list.append("bestof")
+        for i in vodgames_processed:
+            ignore_list.append(f"vodgame{i}")
+        start_texts, mid_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_ARGUMENTS, tpl, ignore_list)
         # Add "dateheader=true" after a "date=" argument
         for x_texts in (start_texts, mid_texts, end_texts):
             if (index := next((i for i, e in enumerate(x_texts) if e.startswith("|date=")), None)) is not None:
@@ -1236,9 +1242,12 @@ class Converter:
                             )
                         self.match_maps_prev_bestof = bestof
 
-        start_texts, end_texts = self.arguments_to_texts(
-            MATCH_MAPS_TEAM_ARGUMENTS, tpl, {"ignore_bestof": bestof_text_inserted}
-        )
+        ignore_list = []
+        if bestof:
+            ignore_list.append("winner")
+        if bestof_text_inserted:
+            ignore_list.append("bestof")
+        start_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_TEAM_ARGUMENTS, tpl, ignore_list)
         texts += start_texts
 
         if x := tpl.get_arg("details"):
@@ -1804,13 +1813,13 @@ class Converter:
 
     def arguments_to_texts(
         self,
-        wrapped_arguments: tuple[int, dict[str, str | int | tuple[str, Callable] | None]],
+        wrapped_arguments: tuple[int, dict[str, str | int | None]],
         tpl: wtp.Template,
-        predicate_args: dict[str] | None = None,
+        ignore_list: list[str] | None = None,
         append_empty_strings: bool = False,
     ) -> list[str] | list[list[str]]:
         part_count, arguments = wrapped_arguments
-        predicate_args = predicate_args or {}
+        ignore_list = ignore_list or []
         texts = [[] for _ in range(part_count)]
         part = 0
 
@@ -1818,14 +1827,10 @@ class Converter:
             found = False
             arg_name = x.name.strip()
             for from_arg, to_arg in arguments.items():
-                if m := re.match(rf"^{from_arg}$", arg_name):
-                    if isinstance(to_arg, tuple):
-                        to_arg, predicate = to_arg
-                    else:
-                        predicate = None
+                if re.match(rf"^{from_arg}$", arg_name):
                     if isinstance(to_arg, int):
                         part = to_arg
-                    elif to_arg is not None and (predicate is None or predicate(m, **predicate_args)):
+                    elif arg_name not in ignore_list and to_arg is not None:
                         value = clean_arg_value(x)
                         if value or append_empty_strings:
                             texts[part].append(f"|{re.sub(from_arg, to_arg, arg_name)}={value}")

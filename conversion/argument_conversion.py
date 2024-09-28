@@ -99,12 +99,9 @@ MATCH_MAPS_ARGUMENTS = _wrap_arguments(
         "recap": "recap",
         "review": "review",
         "comment": "comment",
-        "bestof": ("bestof", lambda m, ignore_bestof, vodgames_processed: not ignore_bestof),
+        "bestof": "bestof",
         "vod": "vod",
-        "vodgame(\\d+)": (
-            "vodgame\\1",
-            lambda m, ignore_bestof, vodgames_processed: int(m.group(1)) not in vodgames_processed,
-        ),
+        "vodgame(\\d+)": "vodgame\\1",
     }
 )
 MATCH_MAPS_TEAM_ARGUMENTS = _wrap_arguments(
@@ -124,7 +121,7 @@ MATCH_MAPS_TEAM_ARGUMENTS = _wrap_arguments(
         "recap": "recap",
         "review": "review",
         "comment": "comment",
-        "bestof": ("bestof", lambda m, ignore_bestof: not ignore_bestof),
+        "bestof": "bestof",
         "vod": "vod",
     }
 )
