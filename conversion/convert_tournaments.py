@@ -1474,7 +1474,7 @@ class Converter:
                 i = 1
                 while True:
                     x = summary_tpl.get_arg(f"map{i}")
-                    x_win = summary_tpl.get_arg(f"map{i}win")
+                    x_win = summary_tpl.get_arg(f"map{i}win") or summary_tpl.get_arg(f"win{i}")
                     if x or x_win:
                         map_ = clean_arg_value(x)
                         if m := PIPE_PATTERN.match(map_):
