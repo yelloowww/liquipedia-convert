@@ -1496,7 +1496,7 @@ class Converter:
                     x = summary_tpl.get_arg(f"veto{i}")
                     x_player = summary_tpl.get_arg(f"vetoplayer{i}")
                     if x or x_player:
-                        match_texts1.append(
+                        map_texts.append(
                             f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}"
                         )
                         i += 1
