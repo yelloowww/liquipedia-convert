@@ -513,16 +513,24 @@ class Converter:
         notes = set()
         players_with_asterisk = {}
 
-        if table.tables or not (rows := table.data(span=True)) or max(len(row) for row in rows) > 4:
+        if table.tables or not (rows := table.data(span=True)):
             return None
 
         cells = table.cells(span=False)
-        table_races = list(SHORT_RACES)
+        two_cols_per_race = False
+        if max(len(row) for row in rows) > 4:
+            if any(c.get_attr("colspan") != "2" for c in cells[0]):
+                return None
+            two_cols_per_race = True
+            table_races = [SHORT_RACES[x // 2] for x in range(8)]
+        else:
+            table_races = list(SHORT_RACES)
+
         for row, col, c in ((row, col, c) for row, row_cells in enumerate(cells) for col, c in enumerate(row_cells)):
             val = c.value.strip()
             if not val:
                 continue
-            if colspan := c.get_attr("colspan"):
+            if colspan := c.get_attr("colspan") and (row != 0 or not two_cols_per_race):
                 # Clean up: remove section count
                 if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                     val = RACE_OR_SECTION_COUNT_PATTERN.sub("", val).strip()
@@ -535,7 +543,7 @@ class Converter:
                         has_a_race_cell = True
                         break
 
-            p = Participant(race=table_races[col] if col < 4 else "")
+            p = Participant(race=table_races[col])
             for tpl in c.templates:
                 name = tpl.normal_name(capitalize=True)
                 if name in ("TeamPart", "TeamIcon"):
@@ -564,23 +572,24 @@ class Converter:
                     else:
                         p.name = c.plain_text().strip().removeprefix("|").lstrip()
                 elif name == "RaceColorClass" or name == "RaceIconSmall":
-                    if col < 4:
-                        race = clean_arg_value(tpl.get_arg("1"))[0].lower()
-                        race = RACES.get(race, race)
-                        if race == "r" and "Unknown" in val:
-                            table_races[col] = "u"
-                        else:
-                            table_races[col] = race
+                    race = clean_arg_value(tpl.get_arg("1"))[0].lower()
+                    race = RACES.get(race, race)
+                    race_index = col * 2 if two_cols_per_race else col
+                    if race == "r" and "Unknown" in val:
+                        table_races[race_index] = "u"
+                    else:
+                        table_races[race_index] = race
                     if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                         has_race_count = True
                     has_a_race_cell = True
-                elif name in ("P", "T", "Z", "R") and col < 4:
+                elif name in ("P", "T", "Z", "R"):
                     race = name.lower()
                     race = RACES.get(race, race)
+                    race_index = col * 2 if two_cols_per_race else col
                     if race == "r" and "Unknown" in val:
-                        table_races[col] = "u"
+                        table_races[race_index] = "u"
                     else:
-                        table_races[col] = race
+                        table_races[race_index] = race
                     has_a_race_cell = True
             if not p.name:
                 del p
