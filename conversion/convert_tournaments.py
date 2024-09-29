@@ -1215,7 +1215,14 @@ class Converter:
 
         texts += end_texts
 
-        return "{{Match\n" + "\n".join(texts) + "\n}}"
+        match_text = "{{Match"
+        if texts:
+            if not texts[0].startswith("|bestof"):
+                match_text += "\n"
+            match_text += "\n".join(texts) + "\n}}"
+        else:
+            match_text += "}}"
+        return match_text
 
     def convert_match_maps_team(self, tpl: wtp.Template) -> str | None:
         teams = ["", ""]
@@ -1280,7 +1287,14 @@ class Converter:
 
         texts += end_texts
 
-        return "{{Match\n" + "\n".join(texts) + "\n}}"
+        match_text = "{{Match"
+        if texts:
+            if not texts[0].startswith("|bestof"):
+                match_text += "\n"
+            match_text += "\n".join(texts) + "\n}}"
+        else:
+            match_text += "}}"
+        return match_text
 
     def convert_bracket(self, tpl: wtp.Template) -> str | None:
         bracket_name = clean_arg_value(tpl.get_arg("1"))
