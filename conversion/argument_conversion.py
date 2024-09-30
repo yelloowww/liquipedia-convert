@@ -1,10 +1,7 @@
 from itertools import takewhile
-from typing import Callable
 
 
-def _wrap_arguments(
-    args: dict[str, str | int | tuple[str, Callable] | None]
-) -> tuple[str, dict[str, str | int | tuple[str, Callable] | None]]:
+def _wrap_arguments(args: dict[str, str | int | None]) -> tuple[str, dict[str, str | int | None]]:
     try:
         part_count = 1 + max(takewhile(lambda x: isinstance(x, int), args.values()))
     except ValueError:

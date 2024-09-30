@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 from itertools import chain
@@ -9,7 +10,7 @@ import random
 import re
 import requests
 import string
-from typing import Any, Callable
+from typing import Any
 
 import wikitextparser as wtp
 
@@ -30,6 +31,7 @@ HEADERS = {
 WIKITEXT_COMMENT_PATTERN = re.compile(r"<!--((?!-->).)*-->", re.UNICODE)
 NOTE_PATTERN = re.compile(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
 ASTERISK_PATTERN = re.compile(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
+REF_PATTERN = re.compile(r'(<ref(?:\s+name=("[^"]+"|[^ ]+))?(?: *\/>|>.+?<\/ref>))', re.UNICODE)
 RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"''\(\d*\)''", re.UNICODE)
 PIPE_PATTERN = re.compile(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
 SECTION_PATTERN = re.compile(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
@@ -517,6 +519,8 @@ class Converter:
         has_section_count = False
         notes = set()
         players_with_asterisk = {}
+        players_with_ref = defaultdict(list)
+        refs = {}
 
         if table.tables or not (rows := table.data(span=True)):
             return None
@@ -611,6 +615,16 @@ class Converter:
                 notes |= set(p.notes)
             if m := ASTERISK_PATTERN.search(val):
                 players_with_asterisk[p.name] = len(m.group(1))
+            if refs_m := REF_PATTERN.findall(val):
+                for m in refs_m:
+                    ref_text = m[0]
+                    ref_name = m[1].strip('"')
+                    if not ref_name:
+                        ref_name = f"UNNAMED_REF_{len(refs)}"
+                        refs[ref_name] = ref_text
+                    elif ref_name not in refs or (refs[ref_name].endswith("/>") and not ref_text.endswith("/>")):
+                        refs[ref_name] = ref_text
+                    players_with_ref[p.name].append(ref_name)
             sections[-1].participants.append(p)
 
         # Exit the function if the table is not a participant table
@@ -629,22 +643,49 @@ class Converter:
         if table.comments:
             self.info += "⚠️ Comments in participant table will be lost\n"
 
-        # Set the note property for players with one or more asterisks
+        # Set the notes property for players with asterisks
         if players_with_asterisk:
             self.info += "⚠️ Asterisks converted to notes in participant table\n"
-            for name, asterisk_count in players_with_asterisk.items():
+            # Find the note number of each asterisk count
+            asterisk_note_numbers = {}
+            for asterisk_count in sorted(set(players_with_asterisk.values())):
                 n = asterisk_count
                 while str(n) in notes:
                     n += 1
-                self.participants[name].notes.append(str(n))
+                notes.add(str(n))
+                asterisk_note_numbers[asterisk_count] = n
+            # Set the note property for the players
+            for name, asterisk_count in players_with_asterisk.items():
+                self.participants[name].notes.append(str(asterisk_note_numbers[asterisk_count]))
+        # Set the notes property for players with refs
+        if players_with_ref:
+            self.info += "⚠️ Refs converted to notes in participant table\n"
+            # Find the note number of each ref
+            ref_note_numbers = {}
+            for n, ref_name in enumerate(refs.keys(), start=1):
+                while str(n) in notes:
+                    n += 1
+                ref_note_numbers[ref_name] = n
+                notes.add(str(n))
+            # Set the note property for the players
+            for name, ref_names in players_with_ref.items():
+                for ref_name in ref_names:
+                    self.participants[name].notes.append(str(ref_note_numbers[ref_name]))
+            # Build the text to append to the template
+            refs_appendix = "\n" + "<br/>\n".join(
+                "{{Note|" + str(ref_note_numbers[ref_name]) + "|" + ref_text + "}}"
+                for ref_name, ref_text in refs.items()
+            )
+        else:
+            refs_appendix = ""
 
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
             and self.participant_tables_processed == 1
         ):
-            return self.prize_pool_table_from_sections(sections)
+            return self.prize_pool_table_from_sections(sections) + refs_appendix
 
-        return self.participants_table_from_sections(sections, has_race_count, has_section_count)
+        return self.participants_table_from_sections(sections, has_race_count, has_section_count) + refs_appendix
 
     def participants_table_from_sections(
         self, sections: list[Section], enable_count: bool = False, enable_section_count: bool = False
