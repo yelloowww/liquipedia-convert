@@ -16,8 +16,7 @@ BOOL_OPTIONS = {
     "prize_pool_table_do_not_convert": False,
     "prize_pool_opponent_details": False,
     "prize_pool_opponent_last_results": False,
-    "participant_table_do_not_convert": False,
-    "participant_table_do_not_convert_first": False,
+    "participant_table_do_not_convert_any": False,
     "participant_table_convert_first_to_qualified_prize_pool_table": False,
     "player_details": True,
     "team_details": True,
@@ -45,6 +44,7 @@ BOOL_OPTIONS = {
 STRING_OPTIONS = {
     "import_limit": "guess",
     "import_limit_fixed_val": "",
+    "participant_table_do_not_convert": "",
     "bracket_match_width": "",
     "bracket_details": "remove_if_stored",
     "match_maps_player_details": "remove_if_stored",

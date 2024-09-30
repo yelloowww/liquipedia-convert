@@ -86,6 +86,11 @@ class Converter:
         self.title = title
         self.options = options
         self.participants: dict[str, Participant] = {}
+        self.participant_tables_not_to_convert: list[int] = []
+        if self.options["participant_table_do_not_convert"]:
+            self.participant_tables_not_to_convert = transform_string_to_list(
+                self.options["participant_table_do_not_convert"]
+            )
 
     def convert(self) -> tuple[str, str]:
         self.preprocess_text()
@@ -134,7 +139,7 @@ class Converter:
         self.changes: list[tuple[int, int, str]] = []
         self.match_summaries: list[MatchSummaryEntry] = []
         self.team_matches: list[TeamMatchEntry] = []
-        self.prize_pool_tables_processed: int = 0
+        self.participant_tables_processed: int = 0
         self.storage_to_enable: bool = False
 
         # Get match summaries
@@ -187,7 +192,7 @@ class Converter:
         self.match_texts = []
         self.participant_table_span = (-1, -1)
         for tbl_or_tpl in parsed_tables_and_templates:
-            if isinstance(tbl_or_tpl, wtp.Table) and not self.options["participant_table_do_not_convert"]:
+            if isinstance(tbl_or_tpl, wtp.Table) and not self.options["participant_table_do_not_convert_any"]:
                 self.pass2_for_table(tbl_or_tpl)
             elif isinstance(tbl_or_tpl, wtp.Template):
                 self.pass2_for_template(tbl_or_tpl)
@@ -613,10 +618,10 @@ class Converter:
             return None
 
         # This is a valid participant table
-        self.prize_pool_tables_processed += 1
+        self.participant_tables_processed += 1
 
-        # If this is the first table and the user has decided not to convert it, then we exit early
-        if self.options["participant_table_do_not_convert_first"] and self.prize_pool_tables_processed == 1:
+        # If this is a table the user has decided not to convert, then we exit early
+        if self.participant_tables_processed in self.participant_tables_not_to_convert:
             return None
 
         for section in sections:
@@ -635,7 +640,7 @@ class Converter:
 
         if (
             self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
-            and self.prize_pool_tables_processed == 1
+            and self.participant_tables_processed == 1
         ):
             return self.prize_pool_table_from_sections(sections)
 
@@ -2458,6 +2463,17 @@ def remove_start_and_end_newlines(text: str) -> str:
     elif text.endswith("\n"):
         text = text.removesuffix("\n")
     return text
+
+
+def transform_string_to_list(input_str):
+    result = []
+    for part in input_str.split(","):
+        if "-" in part:
+            start, end = (int(s) for s in part.split("-"))
+            result.extend(range(start, end + 1))
+        else:
+            result.append(int(part))
+    return result
 
 
 def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:

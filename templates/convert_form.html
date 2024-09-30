@@ -82,12 +82,12 @@
         <fieldset>
           <legend>Participant table</legend>
           <div>
-            <input type="checkbox" name="participant_table_do_not_convert" id="participant_table_do_not_convert" {% if options['participant_table_do_not_convert'] %}checked{% endif %}/>
-            <label for="participant_table_do_not_convert">Do not convert participant tables</label>
+            <input type="checkbox" name="participant_table_do_not_convert_any" id="participant_table_do_not_convert_any" {% if options['participant_table_do_not_convert_any'] %}checked{% endif %}/>
+            <label for="participant_table_do_not_convert">Do not convert any participant table</label>
           </div>
           <div>
-            <input type="checkbox" name="participant_table_do_not_convert" id="participant_table_do_not_convert" {% if options['participant_table_do_not_convert'] %}checked{% endif %}/>
-            <label for="participant_table_do_not_convert_first">Do not convert the first participant table</label>
+            <label>Do not convert tables #:</label>
+            <input type="text" size="16" name="participant_table_do_not_convert" value="{{options['participant_table_do_not_convert']}}" />
           </div>
           <div>
             <input type="checkbox" name="player_details" id="player_details" {% if options['player_details'] %}checked{% endif %}/>
