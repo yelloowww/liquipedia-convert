@@ -1095,10 +1095,16 @@ class Converter:
                 if map_ == "Unknown":
                     map_ = ""
                 map_winner = clean_arg_value(x_win)
-                map_text = f"|map{i}={{{{Map|map={map_}"
+
+                map_text = f"|map{i}={{{{Map"
+                map_map_text = f"|map={map_}"
                 if map_display_name:
-                    map_text += f"|mapDisplayName={map_display_name}"
-                map_text += f"|winner={map_winner}"
+                    map_map_text += f"|mapDisplayName={map_display_name}"
+                map_winner_text = f"|winner={map_winner}"
+                if x_win and (x is None or x_win.span[0] < x.span[0]):
+                    map_text += f"{map_winner_text}{map_map_text}"
+                else:
+                    map_text += f"{map_map_text}{map_winner_text}"
                 map_has_race = False
                 for j in (1, 2):
                     if x := tpl.get_arg(f"map{i}p{j}race"):
@@ -1123,9 +1129,7 @@ class Converter:
             x = tpl.get_arg(f"veto{i}")
             x_player = tpl.get_arg(f"vetoplayer{i}")
             if x or x_player:
-                map_texts.append(
-                    f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}"
-                )
+                map_texts.append(f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}")
                 i += 1
             else:
                 break
@@ -1527,9 +1531,7 @@ class Converter:
                     x = summary_tpl.get_arg(f"veto{i}")
                     x_player = summary_tpl.get_arg(f"vetoplayer{i}")
                     if x or x_player:
-                        map_texts.append(
-                            f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}"
-                        )
+                        map_texts.append(f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}")
                         i += 1
                     else:
                         break
