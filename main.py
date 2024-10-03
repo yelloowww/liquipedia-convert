@@ -132,9 +132,9 @@ def convert_result():
         }
 
     if input_type == "wiki_and_title":
-        converted, info, wikitext = convert_page(wiki, title, options)
+        converted, info, summary, wikitext = convert_page(wiki, title, options)
     elif input_type == "wikitext":
-        converted, info = convert_wikitext(wikitext, wikitext_title, options)
+        converted, info, summary = convert_wikitext(wikitext, wikitext_title, options)
 
     return {
         "input_type": input_type or "wiki_and_title",
@@ -144,6 +144,7 @@ def convert_result():
         "wikitext_title": wikitext_title,
         "converted": converted,
         "info": info,
+        "summary": summary,
         "options": options,
         "open": False,
     }
@@ -190,9 +191,9 @@ def convert_api():
         }
 
     if input_type == "wiki_and_title":
-        converted, info, wikitext = convert_page(wiki, title, options)
+        converted, info, summary, wikitext = convert_page(wiki, title, options)
     elif input_type == "wikitext":
-        converted, info = convert_wikitext(wikitext, wikitext_title, options)
+        converted, info, summary = convert_wikitext(wikitext, wikitext_title, options)
 
     return {
         "input_type": input_type,
@@ -202,6 +203,7 @@ def convert_api():
         "wikitext_title": wikitext_title,
         "converted": converted,
         "info": info,
+        "summary": summary,
         "options": options,
     }
 

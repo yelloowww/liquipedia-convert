@@ -94,21 +94,23 @@ class Converter:
                 self.options["participant_table_do_not_convert"]
             )
 
-    def convert(self) -> tuple[str, str]:
+    def convert(self) -> tuple[str, str, str]:
         self.preprocess_text()
 
         self.info: str = ""
+        self.summary: str = ""
+        self.counter: defaultdict[str, int] = defaultdict(int)
         self.parsed = wtp.parse(self.text)
 
         # Alternatives
         if self.options["convert_very_old_team_matches"]:
-            return self.convert_very_old_team_matches(), self.info
+            return self.convert_very_old_team_matches(), self.info, ""
         if self.options["convert_very_old_player_matches_v1"]:
-            return self.convert_very_old_player_matches_v2(), self.info
+            return self.convert_very_old_player_matches_v2(), self.info, ""
         if self.options["convert_very_old_player_matches_v2"]:
-            return self.convert_very_old_player_matches_v2(), self.info
+            return self.convert_very_old_player_matches_v2(), self.info, ""
 
-        return self.convert_standard(), self.info
+        return self.convert_standard(), self.info, self.summary
 
     def preprocess_text(self) -> None:
         if self.options["convert_very_old_player_matches_v1"] or self.options["convert_very_old_player_matches_v2"]:
@@ -244,12 +246,19 @@ class Converter:
             self.info += f"⚠️ Arguments not converted: {len(self.not_converted_arguments)} "
             self.info += str(sorted(self.not_converted_arguments))
 
+        # Create a summary
+        if self.counter:
+            self.summary = f"Convert {', '.join(f'{name} ({n}x)' for name, n in self.counter.items())}"
+        else:
+            self.summary = ""
+
         return converted
 
     def pass2_for_table(self, tbl: wtp.Table) -> None:
         if table_result := self.convert_table_to_participant_table(tbl):
             self.changes.append((*tbl.span, table_result))
             self.participant_table_span = tbl.span
+            self.counter["participant table"] += 1
 
     def pass2_for_template(self, tpl: wtp.Template) -> None:
         name = tpl.normal_name(capitalize=True)
@@ -278,6 +287,7 @@ class Converter:
                     self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
                     self.prize_pool_text += "\n}}"
                     self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
+                    self.counter["Prize pool"] += 1
 
                 case "Prize pool start team":
                     texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
@@ -301,6 +311,7 @@ class Converter:
                     self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
                     self.prize_pool_text += "\n}}"
                     self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
+                    self.counter["Prize pool team"] += 1
 
         match name:
             case "Legacy Match list start":
@@ -338,14 +349,17 @@ class Converter:
                 if self.match_list_vod:
                     self.info += "⚠️ ... No match to move the VOD to\n"
                 self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
+                self.counter["Legacy Match list"] += 1
 
             case "LegacyBracket" | "LegacyBracketDisplay":
                 if bracket_result := self.convert_bracket(tpl):
                     self.changes.append((*tpl.span, bracket_result))
+                    self.counter["LegacyBracket"] += 1
 
             case "ExternalCupList":
                 if self.options["external_cup_list_convert"] and (list_result := self.convert_external_cup_list(tpl)):
                     self.changes.append((*tpl.span, list_result))
+                    self.counter["ExternalCupList"] += 1
 
             case "StorePlayerLink":
                 self.add_participant_from_player_template(tpl)
@@ -2565,7 +2579,7 @@ def transform_string_to_list(input_str):
     return result
 
 
-def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:
+def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str, str]:
     title = title.replace("_", " ")
 
     cache_folder = Path(__file__).parent.parent / "cache" / wiki
@@ -2584,17 +2598,17 @@ def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, s
             p.write_text(text, encoding="utf-8")
 
     if text:
-        converted, info = Converter(text, title, options).convert()
-        return converted, info_cache + "\n" + info, text
+        converted, info, summary = Converter(text, title, options).convert()
+        return converted, info_cache + "\n" + info, summary, text
 
-    return "", f"Error while getting {title} from wiki {wiki}", ""
+    return "", f"Error while getting {title} from wiki {wiki}", "", ""
 
 
-def convert_wikitext(text: str, title: str, options: dict[str, Any]) -> tuple[str, str]:
+def convert_wikitext(text: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:
     if text:
         return Converter(text, title, options).convert()
 
-    return "", f"Error: no wikitext"
+    return "", f"Error: no wikitext", ""
 
 
 def get_liquipedia_page_content(wiki: str, title: str) -> str | None:
