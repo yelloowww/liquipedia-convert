@@ -10,6 +10,7 @@ class Participant:
     team: str = ""
     dq: bool = False
     notes: list[str] = field(default_factory=list)
+    comments: str = ""
 
 
 @dataclass

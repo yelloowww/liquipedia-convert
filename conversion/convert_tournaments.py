@@ -543,6 +543,7 @@ class Converter:
                 # Clean up: remove section count
                 if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                     val = RACE_OR_SECTION_COUNT_PATTERN.sub("", val).strip()
+                    val = re.sub(r" +<ref", "<ref", val)
                     has_section_count = True
                 sections.append(Section(val))
 
@@ -625,6 +626,13 @@ class Converter:
                     elif ref_name not in refs or (refs[ref_name].endswith("/>") and not ref_text.endswith("/>")):
                         refs[ref_name] = ref_text
                     players_with_ref[p.name].append(ref_name)
+            if c.comments:
+                p.comments = "".join(
+                    comment.string
+                    for comment in c.comments
+                    if "\n" not in comment.string
+                    and ("\n" not in val or comment.span[0] < c.span[0] + val.index("\n"))
+                )
             sections[-1].participants.append(p)
 
         # Exit the function if the table is not a participant table
@@ -641,7 +649,7 @@ class Converter:
         for section in sections:
             self.participants |= {p.name: p for p in section.participants}
         if table.comments:
-            self.info += "⚠️ Comments in participant table will be lost\n"
+            self.info += "⚠️ Comments in participant table may be lost\n"
 
         # Set the notes property for players with asterisks
         if players_with_asterisk:
@@ -713,6 +721,8 @@ class Converter:
                     result += f"|p{i}dq=1"
                 if p.notes:
                     result += f"|p{i}note={','.join(p.notes)}"
+                if p.comments:
+                    result += p.comments
                 result += "\n"
             if section.title:
                 result += "}}\n"
