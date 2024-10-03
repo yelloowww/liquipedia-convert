@@ -320,18 +320,18 @@ class Converter:
                     self.match_list_vod = None
             case "Match maps":
                 if mm_result := self.convert_match_maps(tpl):
-                    self.match_texts.append(mm_result)
+                    empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
+                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
             case "Match maps team":
                 if mmt_result := self.convert_match_maps_team(tpl):
-                    self.match_texts.append(mmt_result)
+                    empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
+                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
             case "Match list comment":
                 self.info += "⚠️ Match list comment may be lost\n"
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
             case "Match list end":
                 match_list_end_pos = tpl.span[1]
-                self.match_list_text += "\n".join(
-                    f"|M{i}={match_text}" for i, match_text in enumerate(self.match_texts, start=1)
-                )
+                self.match_list_text += "\n".join(self.match_texts)
                 self.match_list_text += "\n}}"
                 if self.match_list_comments:
                     self.match_list_text += "\n" + " ".join(self.match_list_comments)
@@ -916,7 +916,7 @@ class Converter:
                 if map_display_name:
                     text += f"|mapDisplayName={map_display_name}"
                 text += f"|winner={winner}}}}}"
-                texts.append()
+                texts.append(text)
                 i += 1
             else:
                 break
@@ -1131,49 +1131,62 @@ class Converter:
         # Parse maps first
         map_texts = []
         map_scores = [0, 0]
-        vodgames_processed = []
+        vodgames_moved_to_map = []
+        empty_map_index = None
         has_a_non_empty_map = False
         i = 1
         while True:
             x = tpl.get_arg(f"map{i}")
             x_win = tpl.get_arg(f"map{i}win")
-            if x or x_win:
-                map_ = clean_arg_value(x)
-                if m := PIPE_PATTERN.match(map_):
-                    map_, map_display_name = m.groups()
-                else:
-                    map_display_name = ""
-                if map_ == "Unknown":
-                    map_ = ""
-                map_winner = clean_arg_value(x_win)
-
-                map_text = f"|map{i}={{{{Map"
-                map_map_text = f"|map={map_}"
-                if map_display_name:
-                    map_map_text += f"|mapDisplayName={map_display_name}"
-                map_winner_text = f"|winner={map_winner}"
-                if x_win and (x is None or x_win.span[0] < x.span[0]):
-                    map_text += f"{map_winner_text}{map_map_text}"
-                else:
-                    map_text += f"{map_map_text}{map_winner_text}"
-                map_has_race = False
-                for j in (1, 2):
-                    if x := tpl.get_arg(f"map{i}p{j}race"):
-                        map_has_race = True
-                        map_text += f"|t{j}p1race={clean_arg_value(x)}"
-                x_vod = tpl.get_arg(f"vodgame{i}")
-                if vod := clean_arg_value(x_vod):
-                    map_text += f"|vod={vod}"
-                    vodgames_processed.append(i)
-                map_text += "}}"
-                map_texts.append(map_text)
-                if map_ or vod or map_has_race:
-                    has_a_non_empty_map = True
-                if map_winner in ("1", "2"):
-                    map_scores[int(map_winner) - 1] += 1
-                i += 1
-            else:
+            if not (x or x_win):
                 break
+
+            map_ = clean_arg_value(x)
+            if m := PIPE_PATTERN.match(map_):
+                map_, map_display_name = m.groups()
+            else:
+                map_display_name = ""
+            if map_ == "Unknown":
+                map_ = ""
+            map_winner = clean_arg_value(x_win)
+
+            map_text = f"|map{i}={{{{Map"
+            map_map_text = f"|map={map_}"
+            if map_display_name:
+                map_map_text += f"|mapDisplayName={map_display_name}"
+            map_winner_text = f"|winner={map_winner}"
+            if x_win and (x is None or x_win.span[0] < x.span[0]):
+                map_text += f"{map_winner_text}{map_map_text}"
+            else:
+                map_text += f"{map_map_text}{map_winner_text}"
+            map_has_race = False
+            for j in (1, 2):
+                if x := tpl.get_arg(f"map{i}p{j}race"):
+                    map_has_race = True
+                    map_text += f"|t{j}p1race={clean_arg_value(x)}"
+
+            # Check if map has any data
+            if map_ or map_winner or map_has_race:
+                # Reset empty_map_index
+                empty_map_index = None
+                # Only include VOD to a Map template with data
+                if vod := clean_arg_value(tpl.get_arg(f"vodgame{i}")):
+                    map_text += f"|vod={vod}"
+                    vodgames_moved_to_map.append(i)
+            elif empty_map_index is None:
+                empty_map_index = i
+
+            if map_ or map_has_race:
+                has_a_non_empty_map = True
+
+            map_text += "}}"
+            map_texts.append(map_text)
+            if map_winner in ("1", "2"):
+                map_scores[int(map_winner) - 1] += 1
+            i += 1
+        # Remove trailing Maps with no data
+        if empty_map_index is not None:
+            map_texts = map_texts[: empty_map_index - 1]
 
         i = 1
         while True:
@@ -1208,10 +1221,14 @@ class Converter:
                         text += f"|flag={player.flag}"
                     if tpl.get_arg(f"player{i}race"):
                         text += f"|race={player.race}"
-                if scores[i - 1]:
+                if scores[i - 1] or (not map_texts and not clean_arg_value(tpl.get_arg("walkover"))):
                     text += f"|score={scores[i - 1]}"
                     if map_texts and str(map_scores[i - 1]) != scores[i - 1]:
-                        self.info += f"⚠️ {info_id_text} Discrepancy between map score and score ({player.name})\n"
+                        self.info += (
+                            f"⚠️ {info_id_text} Discrepancy between"
+                            f" map score {map_scores[i - 1]}"
+                            f" and score {scores[i - 1]} ({player.name})\n"
+                        )
                 elif map_texts and not has_a_non_empty_map and sum(map_scores) > 0:
                     scores[i - 1] = str(map_scores[i - 1])
                     text += f"|score={scores[i - 1]}"
@@ -1251,7 +1268,7 @@ class Converter:
             ignore_list.append("winner")
         if bestof_text_inserted:
             ignore_list.append("bestof")
-        for i in vodgames_processed:
+        for i in vodgames_moved_to_map:
             ignore_list.append(f"vodgame{i}")
         start_texts, mid_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_ARGUMENTS, tpl, ignore_list)
         # Add "dateheader=true" after a "date=" argument
@@ -1262,7 +1279,7 @@ class Converter:
         # Add vod from Match list start if there is one
         if self.match_list_vod:
             if (x := tpl.get_arg("vod")) and clean_arg_value(x):
-                match_list_vod_arg = f"vodgame{max(vodgames_processed) + 1}"
+                match_list_vod_arg = f"vodgame{max(vodgames_moved_to_map) + 1}"
             else:
                 match_list_vod_arg = "vod"
             start_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
@@ -1545,37 +1562,55 @@ class Converter:
 
                 map_texts = []
                 vodgames_moved_to_map = []
+                empty_map_index = None
                 i = 1
                 while True:
                     x = summary_tpl.get_arg(f"map{i}")
                     x_win = summary_tpl.get_arg(f"map{i}win") or summary_tpl.get_arg(f"win{i}")
-                    if x or x_win:
-                        map_ = clean_arg_value(x)
-                        if m := PIPE_PATTERN.match(map_):
-                            map_, map_display_name = m.groups()
-                        else:
-                            map_display_name = ""
-                        if map_ == "Unknown":
-                            map_ = ""
-                        x_vod = summary_tpl.get_arg(f"vodgame{i}")
-                        map_text = f"|map{i}={{{{Map|map={map_}"
-                        if map_display_name:
-                            map_text += f"|mapDisplayName={map_display_name}"
-                        winner = clean_arg_value(x_win)
-                        map_text += f"|winner={winner}"
-                        map_has_race = False
-                        for j in (1, 2):
-                            if x := summary_tpl.get_arg(f"map{i}p{j}race"):
-                                map_has_race = True
-                                map_text += f"|t{j}p1race={clean_arg_value(x)}"
-                        if (map_ or winner or map_has_race) and (vod := clean_arg_value(x_vod)):
+                    if not (x or x_win):
+                        break
+
+                    map_ = clean_arg_value(x)
+                    if m := PIPE_PATTERN.match(map_):
+                        map_, map_display_name = m.groups()
+                    else:
+                        map_display_name = ""
+                    if map_ == "Unknown":
+                        map_ = ""
+                    map_winner = clean_arg_value(x_win)
+
+                    map_text = f"|map{i}={{{{Map"
+                    map_map_text = f"|map={map_}"
+                    if map_display_name:
+                        map_map_text += f"|mapDisplayName={map_display_name}"
+                    map_winner_text = f"|winner={map_winner}"
+                    if x_win and (x is None or x_win.span[0] < x.span[0]):
+                        map_text += f"{map_winner_text}{map_map_text}"
+                    else:
+                        map_text += f"{map_map_text}{map_winner_text}"
+                    map_has_race = False
+                    for j in (1, 2):
+                        if x := summary_tpl.get_arg(f"map{i}p{j}race"):
+                            map_has_race = True
+                            map_text += f"|t{j}p1race={clean_arg_value(x)}"
+
+                    # Check if map has any data
+                    if map_ or map_winner or map_has_race:
+                        # Reset empty_map_index
+                        empty_map_index = None
+                        # Only include VOD to a Map template with data
+                        if vod := clean_arg_value(summary_tpl.get_arg(f"vodgame{i}")):
                             map_text += f"|vod={vod}"
                             vodgames_moved_to_map.append(i)
-                        map_text += "}}"
-                        map_texts.append(map_text)
-                        i += 1
-                    else:
-                        break
+                    elif empty_map_index is None:
+                        empty_map_index = i
+
+                    map_text += "}}"
+                    map_texts.append(map_text)
+                    i += 1
+                # Remove trailing Maps with no data
+                if empty_map_index is not None:
+                    map_texts = map_texts[: empty_map_index - 1]
 
                 i = 1
                 while True:
