@@ -1462,17 +1462,18 @@ class Converter:
                     wins[i - 1] = clean_arg_value(x)
                 if player.name:
                     text = f"|opponent{i}={{{{1Opponent|{player.name}"
-                    if self.options["bracket_details"] == "remove_if_stored":
-                        found, offrace = self.look_for_player(player)
-                        if not found:
-                            text += f"|flag={player.flag}|race={player.race}"
-                        elif offrace:
-                            text += f"|race={player.race}"
-                    elif self.options["bracket_details"] == "keep":
-                        if tpl.get_arg(f"{prefix}flag"):
-                            text += f"|flag={player.flag}"
-                        if tpl.get_arg(f"{prefix}race"):
-                            text += f"|race={player.race}"
+                    if player.name != "BYE":
+                        if self.options["bracket_details"] == "remove_if_stored":
+                            found, offrace = self.look_for_player(player)
+                            if not found:
+                                text += f"|flag={player.flag}|race={player.race}"
+                            elif offrace:
+                                text += f"|race={player.race}"
+                        elif self.options["bracket_details"] == "keep":
+                            if tpl.get_arg(f"{prefix}flag"):
+                                text += f"|flag={player.flag}"
+                            if tpl.get_arg(f"{prefix}race"):
+                                text += f"|race={player.race}"
                     if scores[i - 1]:
                         if m := SCORE_ADVANTAGE_PATTERN.match(scores[i - 1]):
                             scores[i - 1] = m.group(1)
@@ -1524,14 +1525,14 @@ class Converter:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
                         self.info += f"⚠️ In {id_}_{match_id}, {player_prefixes[0]}win={wins[0]}\n"
-                    if players[1].name == "BYE":
+                    if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
                         self.info += f"⚠️ In {id_}_{match_id}, {player_prefixes[1]}win={wins[1]}\n"
-                    if players[0].name == "BYE":
+                    if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
                         match_texts1.append("|winner=2")
@@ -1760,12 +1761,12 @@ class Converter:
                         prev_bestof = bestof
 
             if wins[0] and not wins[1]:
-                if teams[1] == "BYE":
+                if teams[1] == "BYE" and scores[1] == "":
                     match_texts1.append("|walkover=1")
                 elif bestof is None:
                     match_texts1.append("|winner=1")
             elif wins[1] and not wins[0]:
-                if teams[0] == "BYE":
+                if teams[0] == "BYE" and scores[0] == "":
                     match_texts1.append("|walkover=2")
                 elif bestof is None:
                     match_texts1.append("|winner=2")
