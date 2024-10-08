@@ -1437,7 +1437,9 @@ class Converter:
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
 
+        is_single_block_bracket = bracket_name in SINGLE_BLOCK_BRACKETS
         prev_round_number = ""
+        is_new_round = True
         prev_bestof = None
         for match_id, (*player_prefixes, game_prefix) in conversion.items():
             players = [MatchPlayer(), MatchPlayer()]
@@ -1449,7 +1451,15 @@ class Converter:
             wins = ["", ""]
 
             round_number = BRACKET_MATCH_PATTERN.match(match_id).group(1)
-            if round_number != prev_round_number:
+            is_new_round = round_number != prev_round_number
+            # Reset bestof in case of round change
+            # (only in case of backtrack for single-block brackets)
+            if (
+                round_number == "x"
+                or prev_round_number in ("", "x")
+                or (is_single_block_bracket and int(round_number) < int(prev_round_number))
+                or (not is_single_block_bracket and is_new_round)
+            ):
                 prev_bestof = None
 
             for i, (player, prefix) in enumerate(zip(players, player_prefixes), start=1):
@@ -1529,7 +1539,7 @@ class Converter:
                         if bestof != prev_bestof:
                             match_texts0.append(f"|bestof={bestof}")
                             bestof_text_inserted = True
-                            if prev_bestof is not None:
+                            if not is_new_round:
                                 self.info += (
                                     f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
                                 )
@@ -1717,7 +1727,9 @@ class Converter:
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
 
         last_match_id = next(reversed(conversion))
+        is_single_block_bracket = bracket_name in SINGLE_BLOCK_BRACKETS
         prev_round_number = ""
+        is_new_round = True
         prev_bestof = None
         for match_id, (*team_prefixes, game_prefix) in conversion.items():
             teams = ["", ""]
@@ -1730,7 +1742,15 @@ class Converter:
             wins = ["", ""]
 
             round_number = BRACKET_MATCH_PATTERN.match(match_id).group(1)
-            if round_number != prev_round_number:
+            is_new_round = round_number != prev_round_number
+            # Reset bestof in case of round change
+            # (only in case of backtrack for single-block brackets)
+            if (
+                round_number == "x"
+                or prev_round_number in ("", "x")
+                or (is_single_block_bracket and int(round_number) < int(prev_round_number))
+                or (not is_single_block_bracket and is_new_round)
+            ):
                 prev_bestof = None
 
             for i, prefix in enumerate(team_prefixes, start=1):
@@ -1768,7 +1788,7 @@ class Converter:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != prev_bestof:
                         match_texts0.append(f"|bestof={bestof}")
-                        if prev_bestof is not None:
+                        if not is_new_round:
                             self.info += (
                                 f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
                             )

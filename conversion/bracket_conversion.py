@@ -1987,3 +1987,74 @@ BRACKET_NEW_NAMES = {
 
 BRACKET_LEGACY_NAMES = {new: legacy for legacy, new in BRACKET_NEW_NAMES.items()}
 LEGACY_PLAYER_AND_GAME_PREFIXES = {name: sum(matches.values(), ()) for name, matches in BRACKETS.items()}
+
+"""
+Single-block brackets
+Brackets with only one block (blocks being Upper/Middle/Lower)
+This should mean the order in which the rounds are entered in the template is guaranteed, so that we can remove unneeded '|bestof=X' parts
+"""
+SINGLE_BLOCK_BRACKETS = {
+    # SE
+    "Bracket/2",
+    "Bracket/4",
+    "Bracket/2L1DH2L",
+    "Bracket/4L1D",
+    "Bracket/4L2DS",
+    "Bracket/8",
+    "Bracket/2L1DH2LH4L",
+    "Bracket/2L1DH2LH2H2L1DLL",
+    "Bracket/4L2DH4LS",
+    "Bracket/8L4DSS",
+    "Bracket/16",
+    "Bracket/16L8DSSS",
+    "Bracket/32",
+    "Bracket/64",
+    # Qual SE
+    "Bracket/2-1Q",
+    "Bracket/4-1Q",
+    "Bracket/8-1Q",
+    "Bracket/16-1Q",
+    "Bracket/32-1Q",
+    "Bracket/4-2Q",
+    "Bracket/8-2Q",
+    "Bracket/16-2Q",
+    "Bracket/4-2Q-2-1Q",
+    "Bracket/8-4Q",
+    "Bracket/8L4D-4Q",
+    "Bracket/16-4Q",
+    "Bracket/32-4Q",
+    "Bracket/8-4Q-4-2Q",
+    "Bracket/16-8Q",
+    "Bracket/32-8Q",
+    "Bracket/64-8Q",
+    # Lower
+    "Bracket/2L1D",
+    "Bracket/4L2DSL1D",
+    "Bracket/8L4DSL2DSL1D",
+    "Bracket/16L8DSL4DSL2DSL1D",
+    # Qual Lower
+    "Bracket/8L4DSL2DSL1D-1Q",
+    # Special
+    "Bracket/2L1D",
+    "Bracket/2L2D",
+    "Bracket/2L2D",
+    "Bracket/2L3D",
+    "Bracket/2L4D",
+    "Bracket/16L8DSL4DSL4DSL1D",
+    "Bracket/4L1D-4L1D-4L2DS",
+    "Bracket/16L8D-4Q",
+    "Bracket/4L8DS",
+    "Bracket/8L2DS",
+    "Bracket/4L1D",
+    "Bracket/16L4DSS",
+    "Bracket/8L2D-2Q",
+    "Bracket/32L2DS",
+    "Bracket/4L6DS",
+    "Bracket/8L4DSL4DSL1D",
+    "Bracket/16L2DS",
+    "Bracket/2L1DH4LH4H2L1DLL",
+    "Bracket/8L4DSL2DS-1Q",
+    "Bracket/32L16DSL8DS-4Q",
+    "Bracket/16L4DSL2DS",
+    "Bracket/32L32D-8Q",
+}
