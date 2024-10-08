@@ -144,7 +144,6 @@ class Converter:
         self.match_summaries: list[MatchSummaryEntry] = []
         self.team_matches: list[TeamMatchEntry] = []
         self.participant_tables_processed: int = 0
-        self.storage_to_enable: bool = False
 
         # Get match summaries
         for tpl in self.parsed.templates:
@@ -224,18 +223,6 @@ class Converter:
                 mid = generate_id()
                 new_text = f"{{{{SingleMatch|id={mid}" + "\n" + "|M1={{Match\n" + tm_entry.text + "\n}}\n}}"
                 self.changes.append((*tm_entry.span, new_text))
-
-        # Enable storage if needed
-        if self.storage_to_enable:
-            self.info += "⚠️ Storage to enable\n"
-            for tpl in self.parsed.templates:
-                name = tpl.normal_name(capitalize=True)
-                if (
-                    name in ("LPDB storage", "SMW storage")
-                    and (x := tpl.get_arg("1"))
-                    and clean_arg_value(x) in ("no", "false")
-                ):
-                    self.changes.append((*tpl.span, "{{HDB}}"))
 
         # Apply changes
         converted = self.text
@@ -1694,14 +1681,10 @@ class Converter:
 
             prev_round_number = round_number
 
-        if no_duplicate_check := bool((x := tpl.get_arg("noDuplicateCheck")) and clean_arg_value(x)):
-            self.storage_to_enable = True
-        if tpl.normal_name() == "LegacyBracketDisplay" or no_duplicate_check:
-            template_name = "<includeonly>Display</includeonly>Bracket"
-        else:
-            template_name = "Bracket"
+        if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
+            self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"
 
-        result = f"{{{{{template_name}|{bracket_name}|id={id_}"
+        result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
             result += f"|matchWidth={self.options['bracket_match_width']}"
         elif x := tpl.get_arg("column-width"):
@@ -1914,6 +1897,9 @@ class Converter:
                 bracket_texts.append(f"|RxMBR={reset_match_text}")
 
             prev_round_number = round_number
+
+        if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
+            self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:

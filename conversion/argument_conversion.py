@@ -130,6 +130,7 @@ MATCH_MAPS_TEAM_ARGUMENTS = _wrap_arguments(
 BRACKET_ARGUMENTS = _wrap_arguments(
     {
         "hideroundtitles": "hideRoundTitles",
+        "noDuplicateCheck": "noDuplicateCheck",
         "column-width": None,
         "(?:[RL](\\d+)|Q)": None,
         "[12]": None,
