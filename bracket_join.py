@@ -89,10 +89,9 @@ def bracket_join(original: str) -> str:
         bracket_names = [tpl.get_arg("1").value.strip() for tpl in brackets]
         for names, join in JOINS.items():
             if tuple(bracket_names[: len(names)]) == names:
-                print("GOING IN", bracket_names[: len(names)], names)
                 apply_join(join, brackets[: len(names)])
                 brackets = brackets[len(names) :]
-                print("DONE", len(brackets))
+                break
         else:
             brackets = brackets[1:]
 
