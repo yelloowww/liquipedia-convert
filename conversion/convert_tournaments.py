@@ -1428,6 +1428,9 @@ class Converter:
         prev_round_number = ""
         is_new_round = True
         prev_bestof = None
+        bracket_matches = {}
+        bestof_moves = []
+        bestof_sets = {}
         for match_id, (*player_prefixes, game_prefix) in conversion.items():
             players = [MatchPlayer(), MatchPlayer()]
             match_texts0 = []
@@ -1436,6 +1439,7 @@ class Converter:
             scores2 = ["", ""]
             scores3 = ["", ""]
             wins = ["", ""]
+            match = Match()
 
             round_number = BRACKET_MATCH_PATTERN.match(match_id).group(1)
             is_new_round = round_number != prev_round_number
@@ -1448,6 +1452,7 @@ class Converter:
                 or (not is_single_block_bracket and is_new_round)
             ):
                 prev_bestof = None
+                bestof_moves.append(BestofMove(match_id))
 
             for i, (player, prefix) in enumerate(zip(players, player_prefixes), start=1):
                 comments = ""
@@ -1505,8 +1510,8 @@ class Converter:
             if scores[0] in ("Q", "", "-") and scores[1] == "Q" and bracket_name.endswith("Q"):
                 continue
 
-            bestof = None
-            bestof_text_inserted = False
+            # By default bestof is the same as previously
+            match.bestof = prev_bestof
             if (
                 self.options["bracket_guess_bestof"]
                 and all(score == "" for score in scores2)
@@ -1522,30 +1527,30 @@ class Converter:
                             f"⚠️ [Bracket {id_}][{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
                         )
                     else:
-                        bestof = max(num_scores) * 2 - 1
-                        if bestof != prev_bestof:
-                            match_texts0.append(f"|bestof={bestof}")
-                            bestof_text_inserted = True
+                        # We can compute bestof
+                        match.bestof = max(num_scores) * 2 - 1
+                        if match.bestof != prev_bestof:
+                            match.bestof_is_set = True
+                            bestof_sets[match_id] = match.bestof
+                            if bestof_moves[-1].source is None:
+                                bestof_moves[-1].source = match_id
                             if not is_new_round:
-                                self.info += (
-                                    f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
-                                )
-                            prev_bestof = bestof
+                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {match.bestof}\n"
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.info += f"⚠️ In {id_}_{match_id}, {player_prefixes[0]}win={wins[0]}\n"
+                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[0]}win={wins[0]}\n"
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
-                    elif bestof is None:
+                    elif match.bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.info += f"⚠️ In {id_}_{match_id}, {player_prefixes[1]}win={wins[1]}\n"
+                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[1]}win={wins[1]}\n"
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
-                    elif bestof is None:
+                    elif match.bestof is None:
                         match_texts1.append("|winner=2")
                 else:
                     # Either no winner or two winners (!)
@@ -1643,43 +1648,72 @@ class Converter:
                     if not any(text.startswith(f"|vodgame{i}=") for i in vodgames_moved_to_map)
                 ]
 
+                # If the bestof argument and it has an integer value, then use it
                 if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
-                    if bestof_text_inserted:
-                        match_texts0 = [text for text in match_texts0 if not text.startswith("|bestof")]
-                    match_texts0.insert(0, f"|bestof={bestof}")
                     try:
-                        prev_bestof = int(bestof)
+                        bestof = int(bestof)
                     except:
+                        # If the value is not an integer, then ignore it
                         self.info += f"⚠️ [Bracket {id_}][{match_id}] Existing bestof is not a decimal integer value\n"
+                    else:
+                        match.bestof = bestof
+                        match.bestof_is_set = True
+                        bestof_sets[match_id] = match.bestof
+                        if bestof_moves[-1].source is None:
+                            bestof_moves[-1].source = match_id
+
             elif not self.options["bracket_do_not_move_match_summary"] and (
                 ms_texts := self.find_match_summary(players)
             ):
                 match_texts1 = ms_texts
 
-            if match_texts1:
-                # Add an empty line between rounds
+            match.texts = match_texts0 + match_texts1
+            if match.texts:
+                # Add headers between rounds
                 if round_number != prev_round_number:
+                    # Try to use existing multi-line texts, eventually including comments
                     for suffix in ("", "flag", "race"):
                         if (
                             (a := f"{player_prefixes[0]}{suffix}") in prev_arguments
                             and "\n" in (prev_arg := prev_arguments[a].value)
                             and (m := END_OF_PARAM_VALUE_PATTERN.search(prev_arg))
                         ):
-                            bracket_texts.append(remove_start_and_end_newlines(m.group(0).rstrip("\t ")))
+                            match.header = remove_start_and_end_newlines(m.group(0).rstrip("\t "))
                             break
                     else:
-                        if prev_round_number:
-                            bracket_texts.append("")
+                        # By default, add an empty line
+                        match.header = ""
 
-                match_text = "{{Match"
-                if match_texts0:
-                    if not match_texts0[0].startswith("|bestof"):
-                        match_text += "\n"
-                    match_text += "\n".join(match_texts0)
-                match_text += "\n" + "\n".join(match_texts1) + "\n}}"
-                bracket_texts.append(f"|{match_id}={match_text}")
+                # Append the match
+                bracket_matches[match_id] = match
 
+            # Set prev_bestof and prev_round_number for the next loop
+            prev_bestof = match.bestof
             prev_round_number = round_number
+
+        # If all bestof are the same, keep only the first one
+        if len(bestof_sets) > 1 and len(set(bestof_sets.values())) == 1:
+            self.info += f"⚠️ [Bracket {id_}] Keep only the first |bestof=\n"
+            for i, match_id in enumerate(bestof_sets):
+                if i > 0:
+                    bracket_matches[match_id].bestof_is_set = False
+
+        # Move bestof sets
+        for move in bestof_moves:
+            if (
+                move.source is not None
+                and move.destination != move.source
+                and bracket_matches[move.source].bestof_is_set
+            ):
+                bestof = bracket_matches[move.source].bestof
+                self.info += f"⚠️ [Bracket {id_}] Move |bestof={bestof} from {move.source} to {move.destination}\n"
+                bracket_matches[move.destination].bestof = bestof
+                bracket_matches[move.source].bestof_is_set = False
+                bracket_matches[move.destination].bestof_is_set = True
+
+        bracket_texts += [
+            f"{match.header_string()}|{match_id}={match.string()}" for match_id, match in bracket_matches.items()
+        ]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
             self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"
@@ -1714,6 +1748,7 @@ class Converter:
         prev_round_number = ""
         is_new_round = True
         prev_bestof = None
+        bracket_matches = {}
         for match_id, (*team_prefixes, game_prefix) in conversion.items():
             teams = ["", ""]
             match_texts0: list[str] = []
@@ -1723,6 +1758,7 @@ class Converter:
             scores2 = ["", ""]
             scores3 = ["", ""]
             wins = ["", ""]
+            match = Match()
 
             round_number = BRACKET_MATCH_PATTERN.match(match_id).group(1)
             is_new_round = round_number != prev_round_number
@@ -1757,7 +1793,8 @@ class Converter:
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
 
-            bestof = None
+            # By default bestof is the same as previously
+            match.bestof = prev_bestof
             if (
                 self.options["bracket_guess_bestof"]
                 and all(score == "" for score in scores2)
@@ -1768,28 +1805,36 @@ class Converter:
                 except:
                     pass
                 else:
-                    bestof = max(num_scores) * 2 - 1
-                    if bestof != prev_bestof:
-                        match_texts0.append(f"|bestof={bestof}")
-                        if not is_new_round:
-                            self.info += (
-                                f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
-                            )
-                        prev_bestof = bestof
+                    if num_scores[0] == num_scores[1]:
+                        self.info += (
+                            f"⚠️ [Bracket {id_}][{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
+                        )
+                    else:
+                        # We can compute bestof
+                        match.bestof = max(num_scores) * 2 - 1
+                        if match.bestof != prev_bestof:
+                            match.bestof_is_set = True
+                            if not is_new_round:
+                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {match.bestof}\n"
 
-            if wins[0] and not wins[1]:
-                if teams[1] == "BYE" and scores[1] == "":
-                    match_texts1.append("|walkover=1")
-                elif bestof is None:
-                    match_texts1.append("|winner=1")
-            elif wins[1] and not wins[0]:
-                if teams[0] == "BYE" and scores[0] == "":
-                    match_texts1.append("|walkover=2")
-                elif bestof is None:
-                    match_texts1.append("|winner=2")
-            else:
-                # Either no winner or two winners (!)
-                pass
+            if "W" not in scores:
+                if wins[0] and not wins[1]:
+                    if wins[0] != "1":
+                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[0]}win={wins[0]}\n"
+                    if teams[1] == "BYE" and scores[1] == "":
+                        match_texts1.append("|walkover=1")
+                    elif match.bestof is None:
+                        match_texts1.append("|winner=1")
+                elif wins[1] and not wins[0]:
+                    if wins[1] != "1":
+                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[1]}win={wins[1]}\n"
+                    if teams[0] == "BYE" and scores[0] == "":
+                        match_texts1.append("|walkover=2")
+                    elif match.bestof is None:
+                        match_texts1.append("|winner=2")
+                else:
+                    # Either no winner or two winners (!)
+                    pass
 
             score_texts = ["", ""]
             for i in range(0, 2):
@@ -1886,17 +1931,17 @@ class Converter:
                         text += "}}"
                         match_texts1.append(text)
 
-            if match_texts1:
-                match_text = "{{Match\n"
-                if match_texts0:
-                    match_text += "\n".join(match_texts0) + "\n"
-                match_text += "\n".join(match_texts1) + "\n}}"
-                bracket_texts.append(f"|{match_id}={match_text}")
+            match.texts = match_texts0 + match_texts1
+            if match.texts:
+                bracket_matches[match_id] = match
             if reset_match_texts:
-                reset_match_text = "{{Match\n" + "\n".join(reset_match_texts) + "\n}}"
-                bracket_texts.append(f"|RxMBR={reset_match_text}")
+                bracket_matches["RxMBR"] = Match(texts=reset_match_texts)
 
+            # Set prev_bestof and prev_round_number for the next loop
+            prev_bestof = match.bestof
             prev_round_number = round_number
+
+        bracket_texts += [f"|{match_id}={match.string()}" for match_id, match in bracket_matches.items()]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
             self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"

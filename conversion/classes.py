@@ -98,3 +98,28 @@ class ExternalCupList:
     local_currency: str = ""
     prefix: str = ""
     rows: list[ExternalCupListRow] = field(default_factory=list)
+
+
+@dataclass
+class Match:
+    bestof: int | None = None
+    bestof_is_set: bool = False
+    header: str | None = None
+    texts: list[str] = field(default_factory=list)
+
+    def header_string(self):
+        return self.header + "\n" if self.header is not None else ""
+
+    def string(self):
+        s = "{{Match"
+        if self.bestof_is_set:
+            s += f"|bestof={self.bestof}"
+        s += "\n" + "\n".join(self.texts)
+        s += "\n}}"
+        return s
+
+
+@dataclass
+class BestofMove:
+    destination: str
+    source: str | None = None
