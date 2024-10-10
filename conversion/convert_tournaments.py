@@ -436,80 +436,79 @@ class Converter:
         mode = self.options["group_team_matches_mode"] or "single"
 
         for target_section in target_sections:
-            try:
-                section = next(section for section in sections if section.title == target_section)
-            except StopIteration:
+            if (section := next((section for section in sections if section.title == target_section), None)) is None:
                 print(f"Section {target_section} not found")
-            else:
-                start, end = section.contents_span
-                stuff = sorted(
-                    (
-                        *((child.title_span, child) for child in section.children),
-                        *((it.span, it) for it in italics),
-                        *(
-                            (tm_entry.span, tm_entry)
-                            for tm_entry in self.team_matches
-                            if start <= tm_entry.span[0] and tm_entry.span[1] <= end
-                        ),
-                    )
+                continue
+
+            start, end = section.contents_span
+            stuff = sorted(
+                (
+                    *((child.title_span, child) for child in section.children),
+                    *((it.span, it) for it in italics),
+                    *(
+                        (tm_entry.span, tm_entry)
+                        for tm_entry in self.team_matches
+                        if start <= tm_entry.span[0] and tm_entry.span[1] <= end
+                    ),
                 )
+            )
 
-                mid = generate_id()
-                if mode == "single":
-                    new_text = f"{{{{Matchlist|id={mid}"
-                    if self.options["group_team_matches_width"]:
-                        new_text += f"|width={self.options['group_team_matches_width']}"
-                    if self.options["group_team_matches_uncollapsed"]:
-                        new_text += "|collapsed=false"
-                    new_text += "\n"
-                elif mode == "multiple":
-                    new_text = ""
-                section_text = ""
-                i = 1
-                date = ""
-                for item in stuff:
-                    if isinstance(item[1], mwtp_Section):
-                        if mode == "single":
-                            if HIDDEN_ANCHOR_PATTERN.search(item[1].title) is None:
-                                new_text += f"|M{i}header={item[1].title}" + "\n"
-                        elif mode == "multiple":
-                            if not new_text:
-                                new_text += "{{Box|start|padding=4em}}\n"
-                            elif section_text:
-                                # Close the matchlist
-                                section_text += "}}\n"
-                                new_text += section_text
-                                new_text += "{{Box|break|padding=4em}}\n"
-                            new_text += "\n" + f"{'=' * item[1].level}{item[1].title}{'=' * item[1].level}" + "\n"
-                            mid = generate_id()
-                            section_text = f"{{{{Matchlist|id={mid}|collapsed=false"
-                            if self.options["group_team_matches_width"]:
-                                section_text += f"|width={self.options['group_team_matches_width']}"
-                            section_text += "\n"
-                            i = 1
-                        date = ""
-                    elif isinstance(item[1], Italic):
-                        if DATE_PATTERN.search(item[1].text):
-                            date = item[1].text
-                    elif isinstance(item[1], TeamMatchEntry):
-                        match_text = f"|M{i}={{{{Match" + "\n"
-                        if date:
-                            match_text += f"|date={date}" + "\n"
-                        match_text += item[1].text + "\n}}\n"
-                        if mode == "single":
-                            new_text += match_text
-                        elif mode == "multiple":
-                            section_text += match_text
-                        item[1].grouped = True
-                        i += 1
-                if mode == "single":
-                    new_text += "}}\n"
-                elif mode == "multiple" and section_text:
-                    section_text += "}}\n"
-                    new_text += section_text
-                    new_text += "{{Box|end}}\n"
+            mid = generate_id()
+            if mode == "single":
+                new_text = f"{{{{Matchlist|id={mid}"
+                if self.options["group_team_matches_width"]:
+                    new_text += f"|width={self.options['group_team_matches_width']}"
+                if self.options["group_team_matches_uncollapsed"]:
+                    new_text += "|collapsed=false"
+                new_text += "\n"
+            elif mode == "multiple":
+                new_text = ""
+            section_text = ""
+            i = 1
+            date = ""
+            for item in stuff:
+                if isinstance(item[1], mwtp_Section):
+                    if mode == "single":
+                        if HIDDEN_ANCHOR_PATTERN.search(item[1].title) is None:
+                            new_text += f"|M{i}header={item[1].title}" + "\n"
+                    elif mode == "multiple":
+                        if not new_text:
+                            new_text += "{{Box|start|padding=4em}}\n"
+                        elif section_text:
+                            # Close the matchlist
+                            section_text += "}}\n"
+                            new_text += section_text
+                            new_text += "{{Box|break|padding=4em}}\n"
+                        new_text += "\n" + f"{'=' * item[1].level}{item[1].title}{'=' * item[1].level}" + "\n"
+                        mid = generate_id()
+                        section_text = f"{{{{Matchlist|id={mid}|collapsed=false"
+                        if self.options["group_team_matches_width"]:
+                            section_text += f"|width={self.options['group_team_matches_width']}"
+                        section_text += "\n"
+                        i = 1
+                    date = ""
+                elif isinstance(item[1], Italic):
+                    if DATE_PATTERN.search(item[1].text):
+                        date = item[1].text
+                elif isinstance(item[1], TeamMatchEntry):
+                    match_text = f"|M{i}={{{{Match" + "\n"
+                    if date:
+                        match_text += f"|date={date}" + "\n"
+                    match_text += item[1].text + "\n}}\n"
+                    if mode == "single":
+                        new_text += match_text
+                    elif mode == "multiple":
+                        section_text += match_text
+                    item[1].grouped = True
+                    i += 1
+            if mode == "single":
+                new_text += "}}\n"
+            elif mode == "multiple" and section_text:
+                section_text += "}}\n"
+                new_text += section_text
+                new_text += "{{Box|end}}\n"
 
-                self.changes.append((*section.contents_span, new_text))
+            self.changes.append((*section.contents_span, new_text))
 
     def convert_table_to_participant_table(self, table: wtp.Table) -> None:
         sections: list[Section] = [Section("")]
@@ -1510,8 +1509,8 @@ class Converter:
             if scores[0] in ("Q", "", "-") and scores[1] == "Q" and bracket_name.endswith("Q"):
                 continue
 
-            # By default bestof is the same as previously
-            match.bestof = prev_bestof
+            # Guess bestof from scores
+            bestof = None
             if (
                 self.options["bracket_guess_bestof"]
                 and all(score == "" for score in scores2)
@@ -1528,14 +1527,16 @@ class Converter:
                         )
                     else:
                         # We can compute bestof
-                        match.bestof = max(num_scores) * 2 - 1
-                        if match.bestof != prev_bestof:
+                        bestof = max(num_scores) * 2 - 1
+                        if bestof != prev_bestof:
                             match.bestof_is_set = True
-                            bestof_sets[match_id] = match.bestof
+                            bestof_sets[match_id] = bestof
                             if bestof_moves[-1].source is None:
                                 bestof_moves[-1].source = match_id
                             if not is_new_round:
-                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {match.bestof}\n"
+                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+            # By default, bestof is the same as previously
+            match.bestof = bestof or prev_bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
@@ -1543,14 +1544,14 @@ class Converter:
                         self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[0]}win={wins[0]}\n"
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
-                    elif match.bestof is None:
+                    elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
                         self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[1]}win={wins[1]}\n"
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
-                    elif match.bestof is None:
+                    elif bestof is None:
                         match_texts1.append("|winner=2")
                 else:
                     # Either no winner or two winners (!)
@@ -1793,8 +1794,8 @@ class Converter:
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
 
-            # By default bestof is the same as previously
-            match.bestof = prev_bestof
+            # Guess bestof from scores
+            bestof = None
             if (
                 self.options["bracket_guess_bestof"]
                 and all(score == "" for score in scores2)
@@ -1815,7 +1816,9 @@ class Converter:
                         if match.bestof != prev_bestof:
                             match.bestof_is_set = True
                             if not is_new_round:
-                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {match.bestof}\n"
+                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+            # By default, bestof is the same as previously
+            match.bestof = bestof or prev_bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
@@ -1823,14 +1826,14 @@ class Converter:
                         self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[0]}win={wins[0]}\n"
                     if teams[1] == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
-                    elif match.bestof is None:
+                    elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
                         self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[1]}win={wins[1]}\n"
                     if teams[0] == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
-                    elif match.bestof is None:
+                    elif bestof is None:
                         match_texts1.append("|winner=2")
                 else:
                     # Either no winner or two winners (!)
