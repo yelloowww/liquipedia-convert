@@ -2082,6 +2082,8 @@ class Converter:
         if not p.name:
             del p
             return
+        if m := PIPE_PATTERN.match(p.name):
+            p.link, p.name = m.groups()
         if x := tpl.get_arg("link"):
             p.link = clean_arg_value(x)
             if p.link in ("false", "true"):
