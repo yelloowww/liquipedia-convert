@@ -144,6 +144,7 @@ class Converter:
         self.match_summaries: list[MatchSummaryEntry] = []
         self.team_matches: list[TeamMatchEntry] = []
         self.participant_tables_processed: int = 0
+        self.warning_last_bracket_id: str = ""
 
         # Get match summaries
         for tpl in self.parsed.templates:
@@ -190,6 +191,7 @@ class Converter:
         self.prize_pool_text = ""
         self.prize_pool_start_pos = -1
         self.prize_texts = []
+        self.match_list_id = None
         self.match_list_text = ""
         self.match_list_start_pos = -1
         self.match_texts = []
@@ -325,18 +327,22 @@ class Converter:
                     empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
                     self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
             case "Match list comment":
-                self.info += "⚠️ Match list comment may be lost\n"
+                self.info += f"⚠️ [Matchlist {self.match_list_id}] Match list comment may be lost\n"
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
             case "Match list end":
-                match_list_end_pos = tpl.span[1]
-                self.match_list_text += "\n".join(self.match_texts)
-                self.match_list_text += "\n}}"
-                if self.match_list_comments:
-                    self.match_list_text += "\n" + " ".join(self.match_list_comments)
-                if self.match_list_vod:
-                    self.info += "⚠️ ... No match to move the VOD to\n"
-                self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
-                self.counter["Legacy Match list"] += 1
+                if self.match_list_id is None:
+                    self.info += f"⚠️ Match list end without a start\n"
+                else:
+                    match_list_end_pos = tpl.span[1]
+                    self.match_list_text += "\n".join(self.match_texts)
+                    self.match_list_text += "\n}}"
+                    if self.match_list_comments:
+                        self.match_list_text += "\n" + " ".join(self.match_list_comments)
+                    if self.match_list_vod:
+                        self.info += "⚠️ ... No match to move the VOD to\n"
+                    self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
+                    self.counter["Legacy Match list"] += 1
+                    self.match_list_id = None
 
             case "LegacyBracket" | "LegacyBracketDisplay":
                 if bracket_result := self.convert_bracket(tpl):
@@ -1379,23 +1385,21 @@ class Converter:
         id_ = clean_arg_value(tpl.get_arg("id"))
 
         if not bracket_name or not legacy_bracket_name:
-            self.info += f"⚠️ [Bracket {id_}] Empty argument 1 or 2\n"
+            self.warn_for_bracket(id_, " Empty argument 1 or 2")
             return None
 
         if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
-            self.info += (
-                f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}\n"
-            )
+            self.warn_for_bracket(id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}")
 
         if self.options["bracket_identify_by_arg_1"]:
             if bracket_name in BRACKET_LEGACY_NAMES:
                 legacy_bracket_name = BRACKET_LEGACY_NAMES[bracket_name]
             else:
-                self.info += f"⚠️ [Bracket {id_}] Bracket {bracket_name} unknown\n"
+                self.warn_for_bracket(id_, f" Bracket {bracket_name} unknown")
                 return None
 
         if legacy_bracket_name not in BRACKETS:
-            self.info += f'⚠️ [Bracket {id_}] Bracket "{legacy_bracket_name}" unknown\n'
+            self.warn_for_bracket(id_, f' Bracket "{legacy_bracket_name}" unknown')
             return None
 
         conversion = BRACKETS[legacy_bracket_name]
@@ -1419,7 +1423,7 @@ class Converter:
             ) and m.group(1) not in LEGACY_PLAYER_AND_GAME_PREFIXES[legacy_bracket_name]:
                 unknown_args.append(arg_name)
         if unknown_args:
-            self.info += f"⚠️ [Bracket {id_}] Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}\n"
+            self.warn_for_bracket(id_, f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}")
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
 
@@ -1501,7 +1505,7 @@ class Converter:
                         text += f"|score3={scores3[i - 1]}"
                     text += "}}"
                     if comments:
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] Comments moved to the end of the line\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] Comments moved to the end of the line")
                         text += f" {comments}"
                     match_texts1.append(text)
 
@@ -1522,8 +1526,8 @@ class Converter:
                     pass
                 else:
                     if num_scores[0] == num_scores[1]:
-                        self.info += (
-                            f"⚠️ [Bracket {id_}][{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
+                        self.warn_for_bracket(
+                            id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}"
                         )
                     else:
                         # We can compute bestof
@@ -1534,21 +1538,23 @@ class Converter:
                             if bestof_moves[-1].source is None:
                                 bestof_moves[-1].source = match_id
                             if not is_new_round:
-                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+                                self.warn_for_bracket(
+                                    id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}"
+                                )
             # By default, bestof is the same as previously
             match.bestof = bestof or prev_bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[0]}win={wins[0]}\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[0]}win={wins[0]}")
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {player_prefixes[1]}win={wins[1]}\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[1]}win={wins[1]}")
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
@@ -1655,7 +1661,7 @@ class Converter:
                         bestof = int(bestof)
                     except:
                         # If the value is not an integer, then ignore it
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] Existing bestof is not a decimal integer value\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] Existing bestof is not a decimal integer value")
                     else:
                         match.bestof = bestof
                         match.bestof_is_set = True
@@ -1694,7 +1700,7 @@ class Converter:
 
         # If all bestof are the same, keep only the first one
         if len(bestof_sets) > 1 and len(set(bestof_sets.values())) == 1:
-            self.info += f"⚠️ [Bracket {id_}] Keep only the first |bestof=\n"
+            self.warn_for_bracket(id_, " Keep only the first |bestof=")
             for i, match_id in enumerate(bestof_sets):
                 if i > 0:
                     bracket_matches[match_id].bestof_is_set = False
@@ -1707,7 +1713,7 @@ class Converter:
                 and bracket_matches[move.source].bestof_is_set
             ):
                 bestof = bracket_matches[move.source].bestof
-                self.info += f"⚠️ [Bracket {id_}] Move |bestof={bestof} from {move.source} to {move.destination}\n"
+                self.warn_for_bracket(id_, f" Move |bestof={bestof} from {move.source} to {move.destination}")
                 bracket_matches[move.destination].bestof = bestof
                 bracket_matches[move.source].bestof_is_set = False
                 bracket_matches[move.destination].bestof_is_set = True
@@ -1717,7 +1723,7 @@ class Converter:
         ]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"
+            self.warn_for_bracket(id_, " noDuplicateCheck used")
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -1740,7 +1746,7 @@ class Converter:
 
         id_ = clean_arg_value(tpl.get_arg("id"))
         if bracket_name != BRACKET_NEW_NAMES[legacy_name]:
-            self.info += f"⚠️ [Bracket {id_}] Mismatch between {bracket_name} and legacy bracket {legacy_name}\n"
+            self.warn_for_bracket(id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_name}")
 
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
 
@@ -1807,8 +1813,8 @@ class Converter:
                     pass
                 else:
                     if num_scores[0] == num_scores[1]:
-                        self.info += (
-                            f"⚠️ [Bracket {id_}][{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
+                        self.warn_for_bracket(
+                            id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
                         )
                     else:
                         # We can compute bestof
@@ -1816,21 +1822,23 @@ class Converter:
                         if match.bestof != prev_bestof:
                             match.bestof_is_set = True
                             if not is_new_round:
-                                self.info += f"⚠️ [Bracket {id_}][{match_id}] Change of bestof from {prev_bestof} to {bestof}\n"
+                                self.warn_for_bracket(
+                                    id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}"
+                                )
             # By default, bestof is the same as previously
             match.bestof = bestof or prev_bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[0]}win={wins[0]}\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] {team_prefixes[0]}win={wins[0]}")
                     if teams[1] == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.info += f"⚠️ [Bracket {id_}][{match_id}] {team_prefixes[1]}win={wins[1]}\n"
+                        self.warn_for_bracket(id_, f"[{match_id}] {team_prefixes[1]}win={wins[1]}")
                     if teams[0] == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
@@ -1947,7 +1955,7 @@ class Converter:
         bracket_texts += [f"|{match_id}={match.string()}" for match_id, match in bracket_matches.items()]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.info += f"⚠️ [Bracket {id_}] noDuplicateCheck used\n"
+            self.warn_for_bracket(id_, " noDuplicateCheck used")
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -1956,6 +1964,14 @@ class Converter:
             result += f"|matchWidth={clean_arg_value(x)}"
         result += "\n" + "\n".join(bracket_texts) + "\n}}"
         return result
+
+    def warn_for_bracket(self, id_: str, text: str) -> None:
+        if id_ != self.warning_last_bracket_id:
+            self.info += f"⚠️ [Bracket {id_}]"
+            self.warning_last_bracket_id = id_
+        else:
+            self.info += f'⚠️     '
+        self.info += f"{text}\n"
 
     def look_for_player(self, player: MatchPlayer) -> tuple[bool, bool]:
         # found, is_offrace
