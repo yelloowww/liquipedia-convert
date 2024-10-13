@@ -531,21 +531,49 @@ class Converter:
         if table.tables or not (rows := table.data(span=True)):
             return None
 
+        # Get the table cells
         cells = table.cells(span=False)
+
+        # Set table_races, the default races for each column
+        # There is a special case for tables with multiple columns per race
         two_cols_per_race = False
-        if max(len(row) for row in rows) > 4:
-            if any(c.get_attr("colspan") != "2" for c in cells[0]):
-                return None
+        max_col = max(len(row) for row in rows)
+        # This condition is janky but works
+        if len(cells[0]) > 1 and any(c.get_attr("colspan") == "2" for c in cells[0]):
             two_cols_per_race = True
             table_races = [SHORT_RACES[x // 2] for x in range(8)]
+            if max_col > 8:
+                # The table is too wide to be a participant table: exit the function
+                return None
+        elif max_col > 4:
+            # The table is too wide to be a participant table: exit the function
+            return None
         else:
             table_races = list(SHORT_RACES)
 
+        # Loop through each cell
+        prev_row = None
+        next_real_col = 0
         for row, col, c in ((row, col, c) for row, row_cells in enumerate(cells) for col, c in enumerate(row_cells)):
+            # Keep track of the real column index, taking colspan into account
+            if row != prev_row:
+                real_col = 0
+                prev_row = row
+            else:
+                real_col = next_real_col
+            colspan = (c.get_attr("colspan") or "1").strip()
+            try:
+                colspan = int(colspan)
+            except ValueError:
+                colspan = 1
+            next_real_col = real_col + colspan
+
             val = c.value.strip()
             if not val:
                 continue
-            if colspan := c.get_attr("colspan") and (row != 0 or not two_cols_per_race):
+
+            # Look for a section header
+            if colspan > 1 and (row != 0 or not two_cols_per_race):
                 # Clean up: remove section count
                 if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                     val = RACE_OR_SECTION_COUNT_PATTERN.sub("", val).strip()
@@ -590,22 +618,22 @@ class Converter:
                 elif name == "RaceColorClass" or name == "RaceIconSmall":
                     race = clean_arg_value(tpl.get_arg("1"))[0].lower()
                     race = RACES.get(race, race)
-                    race_index = col * 2 if two_cols_per_race else col
-                    if race == "r" and "Unknown" in val:
-                        table_races[race_index] = "u"
-                    else:
-                        table_races[race_index] = race
+                    for race_index in range(real_col, next_real_col):
+                        if race == "r" and "Unknown" in val:
+                            table_races[race_index] = "u"
+                        else:
+                            table_races[race_index] = race
                     if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                         has_race_count = True
                     has_a_race_cell = True
                 elif name in ("P", "T", "Z", "R"):
                     race = name.lower()
                     race = RACES.get(race, race)
-                    race_index = col * 2 if two_cols_per_race else col
-                    if race == "r" and "Unknown" in val:
-                        table_races[race_index] = "u"
-                    else:
-                        table_races[race_index] = race
+                    for race_index in range(real_col, next_real_col):
+                        if race == "r" and "Unknown" in val:
+                            table_races[race_index] = "u"
+                        else:
+                            table_races[race_index] = race
                     has_a_race_cell = True
             if not p.name:
                 del p
