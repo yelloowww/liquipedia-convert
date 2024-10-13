@@ -4,7 +4,7 @@ from typing import Callable
 import wikitextparser as wtp
 
 
-@dataclass
+@dataclass(slots=True)
 class Join:
     new_name: str
     original_template_changes: dict[str, str | None]

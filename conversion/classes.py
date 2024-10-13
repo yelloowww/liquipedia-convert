@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(slots=True)
 class Participant:
     name: str = ""
     link: str = ""
@@ -13,13 +13,13 @@ class Participant:
     comments: str = ""
 
 
-@dataclass
+@dataclass(slots=True)
 class Section:
     title: str
     participants: list[Participant] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(slots=True)
 class MatchPlayer:
     name: str = ""
     link: str = ""
@@ -27,7 +27,7 @@ class MatchPlayer:
     race: str = ""
 
 
-@dataclass
+@dataclass(slots=True)
 class PrizePoolPlayer:
     name: str = ""
     link: str = ""
@@ -46,13 +46,13 @@ class PrizePoolPlayer:
     date: str = ""
 
 
-@dataclass
+@dataclass(slots=True)
 class PlayerSearchResult:
     found: bool = False
     offrace: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class MatchSummaryEntry:
     span: tuple[int]
     has_set_map: bool
@@ -62,7 +62,7 @@ class MatchSummaryEntry:
     grouped: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamMatchEntry:
     span: tuple[int]
     has_set_map: bool
@@ -72,7 +72,7 @@ class TeamMatchEntry:
     grouped: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class Prize:
     value: str = ""
 
@@ -85,7 +85,7 @@ class LocalPrize(Prize):
     FIELD_NAME = "localprize"
 
 
-@dataclass
+@dataclass(slots=True)
 class ExternalCupListRow:
     number: str = ""
     date: str = ""
@@ -93,14 +93,14 @@ class ExternalCupListRow:
     runnerup_prize: Prize | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class ExternalCupList:
     local_currency: str = ""
     prefix: str = ""
     rows: list[ExternalCupListRow] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(slots=True)
 class Match:
     bestof: int | None = None
     bestof_is_set: bool = False
@@ -119,7 +119,7 @@ class Match:
         return s
 
 
-@dataclass
+@dataclass(slots=True)
 class BestofMove:
     destination: str
     source: str | None = None
