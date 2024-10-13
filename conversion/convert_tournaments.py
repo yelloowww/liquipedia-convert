@@ -2693,14 +2693,18 @@ def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, s
 
     cache_folder = Path(__file__).parent.parent / "cache" / wiki
     makedirs(cache_folder, exist_ok=True)
-    cache_title = re.sub(r"[\\/\?\"]", "_", title)
+    cache_title = re.sub(r"[\\/\?\":]", "_", title)
     p = cache_folder / cache_title
 
     info_cache = ""
     if not options["ignore_cache"] and p.exists() and p.is_file():
-        info_cache += f"Getting cached content ({datetime.fromtimestamp(os.path.getmtime(p)).isoformat()})"
+        cache_timestamp = os.path.getmtime(p)
+        info_cache += f"Getting cached content ({datetime.fromtimestamp(cache_timestamp).isoformat()})"
         text: str | None = p.read_text(encoding="utf-8")
+        if datetime.now().timestamp() - cache_timestamp > 3600:
+            info_cache += "\n⚠️ Cache is more than 1-hour old"
     else:
+        cache_timestamp = None
         info_cache += "Getting content from the API"
         text = get_liquipedia_page_content(wiki, title)
         if text:
