@@ -74,6 +74,7 @@ LEGACY_PLAYER_PREFIX_PATTERN = re.compile(
 )
 LEGACY_GAME_DETAILS_PATTERN = re.compile(r"^(R\d+G\d+)details$", re.UNICODE)
 PARTICIPANT_TABLE_PARTICIPANT_PATTERN = re.compile(r"^p?(\d+)$")
+BO_PATTERN = re.compile(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 
 with open("countries.json", "r") as f:
     COUNTRIES = json.load(f)
@@ -1434,13 +1435,17 @@ class Converter:
 
         conversion = BRACKETS[legacy_bracket_name]
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
+
+        # Look for unknown args
         unknown_args = []
         for x in tpl.arguments:
             arg_name = x.name.strip()
+            # Headers
             if m := LEGACY_ROUND_HEADER_PATTERN.match(arg_name):
                 if legacy_bracket_name in ROUND_HEADERS and arg_name in ROUND_HEADERS[legacy_bracket_name]:
                     new_arg = ROUND_HEADERS[legacy_bracket_name][arg_name]
                     new_value = clean_arg_value(x).replace("'''", "")
+                    new_value = BO_PATTERN.sub("Bo\\1", new_value)
                     if isinstance(new_arg, tuple):
                         bracket_texts += [f"|{new_arg_name}={new_value}" for new_arg_name in new_arg]
                     else:
@@ -1454,6 +1459,7 @@ class Converter:
                 unknown_args.append(arg_name)
         if unknown_args:
             self.warn_for_bracket(id_, f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}")
+
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
 
@@ -1691,7 +1697,7 @@ class Converter:
                 if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
                     try:
                         bestof = int(bestof)
-                    except:
+                    except ValueError:
                         # If the value is not an integer, then ignore it
                         self.warn_for_bracket(id_, f"[{match_id}] Existing bestof is not a decimal integer value")
                     else:
@@ -1841,7 +1847,7 @@ class Converter:
             ):
                 try:
                     num_scores = [int(score) for score in scores]
-                except:
+                except ValueError:
                     pass
                 else:
                     if num_scores[0] == num_scores[1]:
