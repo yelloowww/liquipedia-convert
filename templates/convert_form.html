@@ -133,6 +133,10 @@
             <input type="radio" name="bracket_details" id="bracket_details_remove_always" value="remove_always"{% if options['bracket_details'] == 'remove_always' %}checked{% endif %}/>
             <label for="bracket_details_remove_always">Remove flag and race details always</label>
           </div>
+          <div>
+            <input type="checkbox" name="bracket_move_vodgames_to_map" id="bracket_move_vodgames_to_map"{% if options['bracket_move_vodgames_to_map'] %}checked{% endif %}/>
+            <label for="bracket_move_vodgames_to_map">Move vodgameX arguments to Map templates</label>
+          </div>
         </fieldset>
 
         <fieldset>
@@ -152,6 +156,10 @@
           <div>
             <input type="radio" name="match_maps_player_details" id="match_maps_player_details_remove_always" value="remove_always"{% if options['match_maps_player_details'] == 'remove_always' %}checked{% endif %}/>
             <label for="bracket_details_remove_always">Remove flag and race details always</label>
+          </div>
+          <div>
+            <input type="checkbox" name="match_maps_move_vodgames_to_map" id="match_maps_move_vodgames_to_map"{% if options['match_maps_move_vodgames_to_map'] %}checked{% endif %}/>
+            <label for="match_maps_move_vodgames_to_map">Move vodgameX arguments to Map templates</label>
           </div>
         </fieldset>
 

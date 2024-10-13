@@ -1176,7 +1176,9 @@ class Converter:
                 # Reset empty_map_index
                 empty_map_index = None
                 # Only include VOD to a Map template with data
-                if vod := clean_arg_value(tpl.get_arg(f"vodgame{i}")):
+                if self.options["match_maps_move_vodgames_to_map"] and (
+                    vod := clean_arg_value(tpl.get_arg(f"vodgame{i}"))
+                ):
                     map_text += f"|vod={vod}"
                     vodgames_moved_to_map.append(i)
             elif empty_map_index is None:
@@ -1623,7 +1625,9 @@ class Converter:
                         # Reset empty_map_index
                         empty_map_index = None
                         # Only include VOD to a Map template with data
-                        if vod := clean_arg_value(summary_tpl.get_arg(f"vodgame{i}")):
+                        if self.options["bracket_move_vodgames_to_map"] and (
+                            vod := clean_arg_value(summary_tpl.get_arg(f"vodgame{i}"))
+                        ):
                             map_text += f"|vod={vod}"
                             vodgames_moved_to_map.append(i)
                     elif empty_map_index is None:
