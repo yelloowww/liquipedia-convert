@@ -7,8 +7,8 @@ import wikitextparser as wtp
 @dataclass
 class Join:
     new_name: str
-    original_template_changes: dict[str, str]
-    other_template_changes: dict[int | tuple[int, ...], dict[str, Callable]]
+    original_template_changes: dict[str, str | None]
+    other_template_imports: dict[int, dict[str, str]]
     reorder: tuple[str] | None = None
 
 
@@ -20,7 +20,7 @@ JOINS = {
             **{f"R4M{x}": f"R6M{x}" for x in range(1, 3)},
             "R5M1": "R8M1",
         },
-        other_template_changes={
+        other_template_imports={
             1: {
                 **{f"R1M{x}": f"R1M{x + 16}" for x in range(1, 9)},
                 **{f"R2M{x}": f"R2M{x + 8}" for x in range(1, 9)},
@@ -35,7 +35,7 @@ JOINS = {
         original_template_changes={
             "qualifiedHeader": None,
         },
-        other_template_changes={
+        other_template_imports={
             **{
                 i: {
                     **{f"R1M{x}": f"R1M{x + i * 8}" for x in range(1, 9)},
@@ -63,7 +63,7 @@ JOINS = {
         original_template_changes={
             "qualifiedHeader": None,
         },
-        other_template_changes={
+        other_template_imports={
             **{
                 i: {
                     **{f"R1M{x}": f"R1M{x + i * 8}" for x in range(1, 9)},
@@ -76,6 +76,52 @@ JOINS = {
         reorder=(
             *(f"R{r}M1header" for r in range(1, 7)),
             *(f"R{r}M{x}" for r in range(1, 4) for x in range(1, 2 ** (6 - r) + 1)),
+        ),
+    ),
+    ("Bracket/64", "Bracket/16L8DSL4DSL2DSL1D", "Bracket/16L8DSL4DSL2DSL1D"): Join(
+        new_name="Bracket/64U32L16DSL8DSL4DSL2DSL1D",
+        original_template_changes={
+            "R3M1header": "R4M1header",
+            "R4M1header": "R6M1header",
+            "R5M1header": "R8M1header",
+            "R6M1header": "R10M1header",
+            **{f"R3M{x}": f"R4M{x}" for x in range(1, 9)},
+            **{f"R4M{x}": f"R6M{x}" for x in range(1, 5)},
+            **{f"R5M{x}": f"R8M{x}" for x in range(1, 3)},
+            "R6M1": "R10M1",
+        },
+        other_template_imports={
+            **{
+                i: {
+                    **{f"R1M{x}": f"R1M{x + 32 + (i - 1) * 8}" for x in range(1, 9)},
+                    **{f"R2M{x}": f"R2M{x + 16 + (i - 1) * 8}" for x in range(1, 9)},
+                    **{f"R3M{x}": f"R3M{x + (i - 1) * 4}" for x in range(1, 5)},
+                    **{f"R4M{x}": f"R4M{x + 8 + (i - 1) * 4}" for x in range(1, 5)},
+                    **{f"R5M{x}": f"R5M{x + (i - 1) * 2}" for x in range(1, 3)},
+                    **{f"R6M{x}": f"R6M{x + 4 + (i - 1) * 2}" for x in range(1, 3)},
+                    "R7M1": f"R7M{i}",
+                    "R8M1": f"R8M{2 + i}",
+                }
+                for i in range(1, 3)
+            }
+        },
+        reorder=(
+            *(f"R{r}M1header" for r in range(1, 3)),
+            *(f"R{r}M1header" for r in range(4, 11, 2)),
+            *(f"R1M{x}" for x in range(1, 33)),
+            *(f"R2M{x}" for x in range(1, 17)),
+            *(f"R4M{x}" for x in range(1, 9)),
+            *(f"R6M{x}" for x in range(1, 5)),
+            *(f"R8M{x}" for x in range(1, 3)),
+            "R10M1",
+            *(f"R1M{32 + x}" for x in range(1, 17)),
+            *(f"R2M{16 + x}" for x in range(1, 17)),
+            *(f"R3M{x}" for x in range(1, 9)),
+            *(f"R4M{8 + x}" for x in range(1, 9)),
+            *(f"R5M{x}" for x in range(1, 5)),
+            *(f"R6M{4 + x}" for x in range(1, 5)),
+            *(f"R7M{x}" for x in range(1, 3)),
+            *(f"R8M{2 + x}" for x in range(1, 3)),
         ),
     ),
 }
@@ -95,7 +141,7 @@ def bracket_join(original: str) -> str:
         else:
             brackets = brackets[1:]
 
-    converted = str(parsed)
+    converted = parsed.string
 
     return converted
 
@@ -111,10 +157,10 @@ def apply_join(join: Join, brackets: list[wtp.Template]) -> None:
                 x.name = arg_to
 
     for i, bracket in enumerate(brackets[1:], start=1):
-        if changes := join.other_template_changes.get(i):
+        if imports := join.other_template_imports.get(i):
             for arg in bracket.arguments:
-                if arg.name in changes:
-                    arg_to = changes[arg.name]
+                if arg.name in imports:
+                    arg_to = imports[arg.name]
                     if isinstance(arg_to, Callable):
                         arg_to = arg_to(i)
                     brackets[0].set_arg(arg_to, arg.value)
