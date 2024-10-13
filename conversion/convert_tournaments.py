@@ -2008,30 +2008,29 @@ class Converter:
             self.info += f"⚠️ [Bracket {id_}]"
             self.warning_last_bracket_id = id_
         else:
-            self.info += f'⚠️     '
+            self.info += f"⚠️     "
         self.info += f"{text}\n"
 
     def look_for_player(self, player: MatchPlayer) -> tuple[bool, bool]:
-        # found, is_offrace
+        if player.name not in self.participants:
+            # found, is_offrace
+            return False, False
+
+        participant = self.participants[player.name]
+
         flag = player.flag.lower()
         flag = COUNTRIES.get(flag, flag)
+        p_flag = participant.flag.lower()
+        p_flag = COUNTRIES.get(p_flag, p_flag)
+        if flag and (flag != p_flag):
+            return False, False
+
         race = player.race.lower()
         race = RACES.get(race, race)
-
-        if player.name in self.participants:
-            participant = self.participants[player.name]
-
-            p_flag = participant.flag.lower()
-            p_flag = COUNTRIES.get(p_flag, p_flag)
-            if flag and (flag != p_flag):
-                return False, False
-
-            p_race = participant.race.lower()
-            p_race = RACES.get(p_race, p_race)
-            is_offrace = race and (race != p_race)
-            return True, is_offrace
-
-        return False, False
+        p_race = participant.race.lower()
+        p_race = RACES.get(p_race, p_race)
+        is_offrace = race and (race != p_race)
+        return True, is_offrace
 
     def find_match_summary(self, players: list[MatchPlayer]):
         for i, ms_entry in enumerate(self.match_summaries):
