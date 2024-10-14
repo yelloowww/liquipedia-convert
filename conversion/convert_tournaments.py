@@ -742,7 +742,18 @@ class Converter:
             result += "|showCountBySection=1"
         result += "\n"
         for section in sections:
-            if section.title:
+            if not section.participants:
+                if section.title:
+                    self.info += f"⚠️ Titled section without players in participant table\n"
+                else:
+                    continue
+
+            use_participant_section_template = bool(section.title)
+            if len(sections) > 1 and not use_participant_section_template:
+                use_participant_section_template = True
+                self.info += f"⚠️ Title needed for untitled section in participant table\n"
+
+            if use_participant_section_template:
                 result += f"|{{{{ParticipantSection|title={section.title}\n"
             for i, p in enumerate(section.participants, start=1):
                 result += f"|{p.name}"
@@ -759,7 +770,7 @@ class Converter:
                 if p.comments:
                     result += p.comments
                 result += "\n"
-            if section.title:
+            if use_participant_section_template:
                 result += "}}\n"
         result += "}}"
         return result
