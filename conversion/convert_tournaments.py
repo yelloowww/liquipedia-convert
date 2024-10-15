@@ -1481,10 +1481,11 @@ class Converter:
         bracket_matches = {}
         bestof_moves = []
         bestof_sets = {}
-        for match_id, (*player_prefixes, game_prefix) in conversion.items():
+        for match_index, (match_id, (*player_prefixes, game_prefix)) in enumerate(conversion.items(), start=1):
             players = [MatchPlayer(), MatchPlayer()]
-            match_texts0 = []
-            match_texts1 = []
+            match_texts0: list[str] = []
+            match_texts1: list[str] = []
+            reset_match_texts: list[str] = []
             scores = ["", ""]
             scores2 = ["", ""]
             scores3 = ["", ""]
@@ -1540,6 +1541,8 @@ class Converter:
                                 text += f"|flag={player.flag}"
                             if tpl.get_arg(f"{prefix}race"):
                                 text += f"|race={player.race}"
+
+                    text_reset = text
                     if scores[i - 1]:
                         if m := SCORE_ADVANTAGE_PATTERN.match(scores[i - 1]):
                             scores[i - 1] = m.group(1)
@@ -1547,14 +1550,29 @@ class Converter:
                         else:
                             text += f"|score={scores[i - 1]}"
                     if scores2[i - 1]:
-                        text += f"|score2={scores2[i - 1]}"
+                        if match_index == len(conversion):
+                            # If this is the last match, move the second score to RxMBR
+                            text_reset += f"|score={scores2[i - 1]}"
+                        else:
+                            self.warn_for_bracket(
+                                id_,
+                                f"[{match_id}] score2 for this match may not be supported correctly in this bracket",
+                            )
+                            text += f"|score2={scores2[i - 1]}"
                     if scores3[i - 1]:
+                        self.warn_for_bracket(
+                            id_, f"[{match_id}] score3 may not be supported correctly in this bracket"
+                        )
                         text += f"|score3={scores3[i - 1]}"
                     text += "}}"
+                    text_reset += "}}"
                     if comments:
                         self.warn_for_bracket(id_, f"[{match_id}] Comments moved to the end of the line")
                         text += f" {comments}"
+
                     match_texts1.append(text)
+                    if scores2[i - 1] and match_index == len(conversion):
+                        reset_match_texts.append(text_reset)
 
             # Removing matches where the score is Q, to mean qualification
             if scores[0] in ("Q", "", "-") and scores[1] == "Q" and bracket_name.endswith("Q"):
@@ -1742,6 +1760,8 @@ class Converter:
 
                 # Append the match
                 bracket_matches[match_id] = match
+            if reset_match_texts:
+                bracket_matches["RxMBR"] = Match(texts=reset_match_texts)
 
             # Set prev_bestof and prev_round_number for the next loop
             prev_bestof = match.bestof
