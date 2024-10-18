@@ -32,7 +32,7 @@ WIKITEXT_COMMENT_PATTERN = re.compile(r"<!--((?!-->).)*-->", re.UNICODE)
 NOTE_PATTERN = re.compile(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
 ASTERISK_PATTERN = re.compile(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
 REF_PATTERN = re.compile(r'(<ref(?:\s+name=("[^"]+"|[^ ]+))?(?: *\/>|>.+?<\/ref>))', re.UNICODE)
-RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"''\(\d*\)''", re.UNICODE)
+RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"(?:''\(\d*\)''| +\(\d*\))", re.UNICODE)
 PIPE_PATTERN = re.compile(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
 SECTION_PATTERN = re.compile(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
 DATE_PATTERN = re.compile(r"(?!19|20)\d{2}", re.UNICODE)
@@ -575,6 +575,7 @@ class Converter:
 
             # Look for a section header
             if colspan > 1 and (row != 0 or not two_cols_per_race):
+                val = val.removeprefix("'''").removesuffix("'''")
                 # Clean up: remove section count
                 if RACE_OR_SECTION_COUNT_PATTERN.search(val):
                     val = RACE_OR_SECTION_COUNT_PATTERN.sub("", val).strip()
