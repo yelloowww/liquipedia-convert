@@ -602,8 +602,8 @@ class Converter:
                             p.link, p.name = m.groups()
                     if x := tpl.get_arg("flag"):
                         p.flag = clean_arg_value(x)
-                    if x := tpl.get_arg("race"):
-                        p.race = clean_arg_value(x)
+                    if race := clean_arg_value(tpl.get_arg("race")):
+                        p.race = race
                     if x := tpl.get_arg("link"):
                         p.link = clean_arg_value(x)
                 elif m := FLAG_TEMPLATE_PATTERN.match(name):
