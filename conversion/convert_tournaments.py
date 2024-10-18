@@ -197,7 +197,10 @@ class Converter:
         self.match_list_start_pos = -1
         self.match_texts = []
         self.participant_table_span = (-1, -1)
+        self.to_skip = set()
         for tbl_or_tpl in parsed_tables_and_templates:
+            if tbl_or_tpl.span in self.to_skip:
+                continue
             if isinstance(tbl_or_tpl, wtp.Table) and not self.options["participant_table_do_not_convert_any"]:
                 self.pass2_for_table(tbl_or_tpl)
             elif isinstance(tbl_or_tpl, wtp.Template):
@@ -304,7 +307,7 @@ class Converter:
                     self.counter["Prize pool team"] += 1
 
         match name:
-            case "Legacy Match list start":
+            case "Legacy Match list start" | "LegacyMatchList":
                 texts = self.arguments_to_texts(MATCH_LIST_ARGUMENTS, tpl)
                 self.match_list_text = "{{Matchlist" + "".join(texts) + "\n"
                 self.match_list_start_pos = tpl.span[0]
@@ -319,7 +322,12 @@ class Converter:
                     )
                 else:
                     self.match_list_vod = None
-            case "Match maps":
+                if name == "LegacyMatchList":
+                    for sub_tpl in tpl.templates:
+                        self.pass2_for_template(sub_tpl)
+                        self.to_skip.add(sub_tpl.span)
+                    self.close_match_list(tpl)
+            case "Match maps" | "MatchMaps/Legacy":
                 if mm_result := self.convert_match_maps(tpl):
                     empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
                     self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
@@ -334,16 +342,7 @@ class Converter:
                 if self.match_list_id is None:
                     self.info += f"⚠️ Match list end without a start\n"
                 else:
-                    match_list_end_pos = tpl.span[1]
-                    self.match_list_text += "\n".join(self.match_texts)
-                    self.match_list_text += "\n}}"
-                    if self.match_list_comments:
-                        self.match_list_text += "\n" + " ".join(self.match_list_comments)
-                    if self.match_list_vod:
-                        self.info += "⚠️ ... No match to move the VOD to\n"
-                    self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
-                    self.counter["Legacy Match list"] += 1
-                    self.match_list_id = None
+                    self.close_match_list(tpl)
 
             case "LegacyBracket" | "LegacyBracketDisplay":
                 if bracket_result := self.convert_bracket(tpl):
@@ -372,6 +371,18 @@ class Converter:
                     name = name.replace("TeamBracket", "Bracket")
                     if team_bracket_result := self.convert_team_bracket(tpl, name):
                         self.changes.append((*tpl.span, team_bracket_result))
+
+    def close_match_list(self, tpl):
+        match_list_end_pos = tpl.span[1]
+        self.match_list_text += "\n".join(self.match_texts)
+        self.match_list_text += "\n}}"
+        if self.match_list_comments:
+            self.match_list_text += "\n" + " ".join(self.match_list_comments)
+        if self.match_list_vod:
+            self.info += "⚠️ ... No match to move the VOD to\n"
+        self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
+        self.counter["Legacy Match list"] += 1
+        self.match_list_id = None
 
     def get_aliases_from_options(self) -> None:
         self.tm_player_aliases = {}
@@ -617,7 +628,7 @@ class Converter:
                             p.name = link.title.strip()
                     else:
                         p.name = c.plain_text().strip().removeprefix("|").lstrip()
-                elif name == "RaceColorClass" or name == "RaceIconSmall":
+                elif name in ("RaceColorClass", "RaceIconSmall", "RaceColor2", "RaceIcon"):
                     race = clean_arg_value(tpl.get_arg("1"))[0].lower()
                     race = RACES.get(race, race)
                     for race_index in range(real_col, next_real_col):
