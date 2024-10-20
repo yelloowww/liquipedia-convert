@@ -75,6 +75,7 @@ LEGACY_PLAYER_PREFIX_PATTERN = re.compile(
 LEGACY_GAME_DETAILS_PATTERN = re.compile(r"^(R\d+G\d+)details$", re.UNICODE)
 PARTICIPANT_TABLE_PARTICIPANT_PATTERN = re.compile(r"^p?(\d+)$")
 BO_PATTERN = re.compile(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
+ADVANTAGE_HINT_PATTERN = re.compile(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
 
 with open("countries.json", "r") as f:
     COUNTRIES = json.load(f)
@@ -1659,7 +1660,7 @@ class Converter:
                     BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
                 )
 
-                if any("advantage" in s for s in summary_texts):
+                if any(ADVANTAGE_HINT_PATTERN.search(s) for t in (summary_texts, summary_end_texts) for s in t):
                     self.info += f"⚠️ Possible advantage in {game_prefix}\n"
 
                 map_texts = []
