@@ -2737,7 +2737,7 @@ def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, s
 
     cache_folder = Path(__file__).parent.parent / "cache" / wiki
     makedirs(cache_folder, exist_ok=True)
-    cache_title = re.sub(r"[\\/\?\":]", "_", title)
+    cache_title = re.sub(r"[\\/\?\":\*]", "_", title)
     p = cache_folder / cache_title
 
     info_cache = ""
