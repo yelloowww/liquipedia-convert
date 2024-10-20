@@ -250,8 +250,9 @@ class Converter:
     def pass2_for_table(self, tbl: wtp.Table) -> None:
         if table_result := self.convert_table_to_participant_table(tbl):
             self.changes.append((*tbl.span, table_result))
-            self.participant_table_span = tbl.span
             self.counter["participant table"] += 1
+        if table_result is not None:
+            self.participant_table_span = tbl.span
 
     def pass2_for_template(self, tpl: wtp.Template) -> None:
         name = tpl.normal_name(capitalize=True)
@@ -691,7 +692,7 @@ class Converter:
 
         # If this is a table the user has decided not to convert, then we exit early
         if self.participant_tables_processed in self.participant_tables_not_to_convert:
-            return None
+            return False
 
         for section in sections:
             self.participants |= {p.name: p for p in section.participants}
