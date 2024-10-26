@@ -28,54 +28,52 @@ HEADERS = {
     "Accept-Encoding": "gzip",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 EnuajBot (enuaj on Liquipedia)",
 }
-WIKITEXT_COMMENT_PATTERN = re.compile(r"<!--((?!-->).)*-->", re.UNICODE)
-NOTE_PATTERN = re.compile(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
-ASTERISK_PATTERN = re.compile(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
-REF_PATTERN = re.compile(r'(<ref(?:\s+name=("[^"]+"|[^ ]+))?(?: *\/>|>.+?<\/ref>))', re.UNICODE)
-RACE_OR_SECTION_COUNT_PATTERN = re.compile(r"(?:''\(\d*\)''| +\(\d*\))", re.UNICODE)
-PIPE_PATTERN = re.compile(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
-SECTION_PATTERN = re.compile(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
-DATE_PATTERN = re.compile(r"(?!19|20)\d{2}", re.UNICODE)
-BAD_CLOSING_STROKE_TAG_PATTERN = re.compile(r"\n\|\} *<\/s>", re.UNICODE)
-TO_GAMESET_PATTERN = re.compile(
+
+rc = re.compile
+WIKITEXT_COMMENT_PATTERN = rc(r"<!--((?!-->).)*-->", re.UNICODE)
+NOTE_PATTERN = rc(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
+ASTERISK_PATTERN = rc(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
+REF_PATTERN = rc(r'(<ref(?:\s+name=("[^"]+"|[^ ]+))?(?: *\/>|>.+?<\/ref>))', re.UNICODE)
+RACE_OR_SECTION_COUNT_PATTERN = rc(r"(?:''\(\d*\)''| +\(\d*\))", re.UNICODE)
+PIPE_PATTERN = rc(r"(.+)\{\{!\}\}(.+)", re.UNICODE)
+SECTION_PATTERN = rc(r"^(?<!=)(={1,6})([^=\n]+?)\1", re.UNICODE)
+DATE_PATTERN = rc(r"(?!19|20)\d{2}", re.UNICODE)
+BAD_CLOSING_STROKE_TAG_PATTERN = rc(r"\n\|\} *<\/s>", re.UNICODE)
+TO_GAMESET_PATTERN = rc(
     r"((?:<s>)?) *(?:'''|<b>)? *(\{\{ *?player.*?\}\}) *?((?:'''|<\/b>)?) vs. (?:'''|<b>)? *(\{\{ *?player.*?\}\}) *?((?:'''|<\/b>)?) *<br /> *on *\[\[(.+?)\]\]",
     re.UNICODE,
 )
-HIDDEN_ANCHOR_PATTERN = re.compile(r" *\{\{ *(?:HA|HiddenAnchor)", re.UNICODE)
-FLAG_TEAM_PATTERN = re.compile(
-    r"(?:^\{\{[Ff]lag\/.+?\}\}(?:\s|&nbsp;)*\b|\b(?:\s|&nbsp;)*\{\{[Ff]lag\/.+?\}\}$)", re.UNICODE
-)
-BR_2V2_PATTERN1 = re.compile(
+HIDDEN_ANCHOR_PATTERN = rc(r" *\{\{ *(?:HA|HiddenAnchor)", re.UNICODE)
+FLAG_TEAM_PATTERN = rc(r"(?:^\{\{[Ff]lag\/.+?\}\}(?:\s|&nbsp;)*\b|\b(?:\s|&nbsp;)*\{\{[Ff]lag\/.+?\}\}$)", re.UNICODE)
+BR_2V2_PATTERN1 = rc(
     r"(?:\[\[(.+?)\]\]|(.+?)) *\{\{SC2-([PTZR])\}\} *(?:\{\{[Ff]lag\/(.*?)\}\} *)?<br *\/> *(?:\[\[(.+?)\]\]|(.+?)) *\{\{SC2-([PTZR])\}\} *(?:\{\{[Ff]lag\/(.*?)\}\})?",
     re.UNICODE,
 )
-BR_2V2_PATTERN2 = re.compile(
+BR_2V2_PATTERN2 = rc(
     r"(?:\{\{[Ff]lag\/(.*?)\}\} *)?\{\{SC2-([PTZR])\}\} *(?:\[\[(.+?)\]\]|(.+?)) *<br *\/> *(?:\{\{[Ff]lag\/(.*?)\}\} *)?\{\{SC2-([PTZR])\}\} *(?:\[\[(.+?)\]\]|(.+))",
     re.UNICODE,
 )
-MAP_PATTERN = re.compile(r"\|map(\d+)=\{\{Map", re.UNICODE)
-OPPONENT_PATTERN = re.compile(r"\|opponent(\d+)=.+", re.UNICODE)
-TEAM_BRACKET_TEMPLATE_SC2 = re.compile(r"\{\{[Tt]eamBracket\|sc2\}\} *", re.UNICODE)
-TEAM_BRACKET_TEMPLATE = re.compile(r"\{\{[Tt]eamBracket\|(.((?!\}\}|\|).)+)\}\}", re.UNICODE)
-BRACKET_MATCH_PATTERN = re.compile(r"R(\d+|x)M.+", re.UNICODE)
-END_OF_PARAM_VALUE_PATTERN = re.compile(r"(?s)(\s|<!--(?:(?!-->).)+-->)+$", re.UNICODE)
-PLACE_PATTERN = re.compile(r"(\d+)$", re.UNICODE)
-FLAG_TEMPLATE_PATTERN = re.compile(r"^Flag/(.+)$", re.UNICODE)
-LEGACY_ROUND_HEADER_PATTERN = re.compile(r"^(?:([RL])\d+|Q)$", re.UNICODE)
-SCORE_ADVANTAGE_PATTERN = re.compile(
+MAP_PATTERN = rc(r"\|map(\d+)=\{\{Map", re.UNICODE)
+OPPONENT_PATTERN = rc(r"\|opponent(\d+)=.+", re.UNICODE)
+TEAM_BRACKET_TEMPLATE_SC2 = rc(r"\{\{[Tt]eamBracket\|sc2\}\} *", re.UNICODE)
+TEAM_BRACKET_TEMPLATE = rc(r"\{\{[Tt]eamBracket\|(.((?!\}\}|\|).)+)\}\}", re.UNICODE)
+BRACKET_MATCH_PATTERN = rc(r"R(\d+|x)M.+", re.UNICODE)
+END_OF_PARAM_VALUE_PATTERN = rc(r"(?s)(\s|<!--(?:(?!-->).)+-->)+$", re.UNICODE)
+PLACE_PATTERN = rc(r"(\d+)$", re.UNICODE)
+FLAG_TEMPLATE_PATTERN = rc(r"^Flag/(.+)$", re.UNICODE)
+LEGACY_ROUND_HEADER_PATTERN = rc(r"^(?:([RL])\d+|Q)$", re.UNICODE)
+SCORE_ADVANTAGE_PATTERN = rc(
     r"<abbr title=\"Winner(?:'s|s') [bB]racket advantage of 1 (?:map|game)\"> *(\d+) *</abbr>", re.UNICODE
 )
-STRIKETHROUGH_PATTERN = re.compile(r"<s>((?:(?!<\/s>).)+)</s>", re.UNICODE)
-NOINCLUDE_LEGACY_BRACKET_PATTERN = re.compile(
+STRIKETHROUGH_PATTERN = rc(r"<s>((?:(?!<\/s>).)+)</s>", re.UNICODE)
+NOINCLUDE_LEGACY_BRACKET_PATTERN = rc(
     r"\{\{<noinclude>LegacyBracket(.+?)<\/noinclude><includeonly>DisplayBracket<\/includeonly>", re.UNICODE
 )
-LEGACY_PLAYER_PREFIX_PATTERN = re.compile(
-    r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|team|short|literal)?$", re.UNICODE
-)
-LEGACY_GAME_DETAILS_PATTERN = re.compile(r"^(R\d+G\d+)details$", re.UNICODE)
-PARTICIPANT_TABLE_PARTICIPANT_PATTERN = re.compile(r"^p?(\d+)$")
-BO_PATTERN = re.compile(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
-ADVANTAGE_HINT_PATTERN = re.compile(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
+LEGACY_PLAYER_PREFIX_PATTERN = rc(r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|team|short|literal)?$", re.UNICODE)
+LEGACY_GAME_DETAILS_PATTERN = rc(r"^(R\d+G\d+)details$", re.UNICODE)
+PARTICIPANT_TABLE_PARTICIPANT_PATTERN = rc(r"^p?(\d+)$")
+BO_PATTERN = rc(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
+ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
 
 with open("countries.json", "r") as f:
     COUNTRIES = json.load(f)
@@ -373,6 +371,9 @@ class Converter:
                     name = name.replace("TeamBracket", "Bracket")
                     if team_bracket_result := self.convert_team_bracket(tpl, name):
                         self.changes.append((*tpl.span, team_bracket_result))
+
+                # if name == "GroupTableLeague":
+                #     self.add_participants_from_group_table_league(tpl)
 
     def close_match_list(self, tpl):
         match_list_end_pos = tpl.span[1]
@@ -2244,6 +2245,35 @@ class Converter:
                 int(m.group(1))
                 for x in tpl.arguments
                 if (m := PARTICIPANT_TABLE_PARTICIPANT_PATTERN.match(x.name.strip()))
+            )
+        except ValueError:
+            i = 1
+        while (x := tpl.get_arg(str(i))) or (x := tpl.get_arg(f"p{i}")):
+            p = Participant(name=clean_arg_value(x))
+            if not p.name:
+                del p
+                i += 1
+                continue
+            if x := tpl.get_arg(f"p{i}link"):
+                p.link = clean_arg_value(x)
+                if p.link in ("false", "true"):
+                    p.link = ""
+            if x := tpl.get_arg(f"p{i}flag"):
+                p.flag = clean_arg_value(x)
+            if x := tpl.get_arg(f"p{i}race"):
+                p.race = clean_arg_value(x)
+            self.participants[p.name] = p
+            participants.append(p)
+            i += 1
+        return participants
+
+    def add_participants_from_group_table_league(self, tpl: wtp.Template) -> list[Participant]:
+        participants: list[Participant] = []
+        try:
+            i = min(
+                int(m.group(1))
+                for x in tpl.arguments
+                if (m := GROUP_TABLE_LEAGUE_PLAYER_PATTERN.match(x.name.strip()))
             )
         except ValueError:
             i = 1
