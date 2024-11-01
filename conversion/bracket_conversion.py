@@ -691,7 +691,7 @@ BRACKETS = {
         "R6M1": ("R6W1", "R6W2", "R6G1"),
     },
     "TeSL12SEBracket": {
-        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 5)},
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
         **{f"R2M{i}": (f"R2D{i}", f"R2W{i}", f"R2G{i}") for i in range(1, 3)},
         **{f"R3M{i}": (f"R3D{i}", f"R3W{i}", f"R3G{i}") for i in range(1, 3)},
         **{f"R4M{i}": (f"R4D{i}", f"R4W{i}", f"R4G{i}") for i in range(1, 3)},
