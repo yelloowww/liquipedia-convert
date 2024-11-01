@@ -1,4 +1,4 @@
-{
+COUNTRIES = {
     "afghanistan": "af",
     "albania": "al",
     "algeria": "dz",
@@ -251,5 +251,5 @@
     "yemen": "ye",
     "zambia": "zm",
     "zimbabwe": "zw",
-    "åland islands": "ax"
+    "åland islands": "ax",
 }

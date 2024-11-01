@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
+from functools import cached_property
+
+from conversion.countries import COUNTRIES
+from conversion.races import RACES
 
 
-@dataclass(slots=True)
+@dataclass
 class Participant:
     name: str = ""
     link: str = ""
@@ -11,6 +15,16 @@ class Participant:
     dq: bool = False
     notes: list[str] = field(default_factory=list)
     comments: str = ""
+
+    @cached_property
+    def clean_flag(self):
+        flag = self.flag.lower()
+        return COUNTRIES.get(flag, flag)
+
+    @cached_property
+    def clean_race(self):
+        race = self.race.lower()
+        return RACES.get(race, race)
 
 
 @dataclass(slots=True)

@@ -16,8 +16,10 @@ import wikitextparser as wtp
 
 from conversion.argument_conversion import *
 from conversion.bracket_conversion import *
+from conversion.countries import COUNTRIES
 from conversion.classes import *
 from conversion.my_wikitextparser import get_italics, get_sections, Italic, Section as mwtp_Section
+from conversion.races import RACES
 
 
 API_URLS = {
@@ -75,10 +77,6 @@ PARTICIPANT_TABLE_PARTICIPANT_PATTERN = rc(r"^p?(\d+)$")
 BO_PATTERN = rc(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
 
-with open("countries.json", "r") as f:
-    COUNTRIES = json.load(f)
-with open("races.json", "r") as f:
-    RACES = json.load(f)
 SHORT_RACES = ("p", "t", "z", "r")
 
 
@@ -2103,19 +2101,19 @@ class Converter:
 
         participant = self.participants[player.name]
 
-        flag = player.flag.lower()
-        flag = COUNTRIES.get(flag, flag)
-        p_flag = participant.flag.lower()
-        p_flag = COUNTRIES.get(p_flag, p_flag)
-        if flag and (flag != p_flag):
-            return False, False
+        if player.flag:
+            flag = player.flag.lower()
+            flag = COUNTRIES.get(flag, flag)
+            if flag != (p_flag := participant.clean_flag):
+                if p_flag:
+                    self.info += f"⚠️ {participant.name} found in participants with flag '{p_flag}' != '{flag}'\n"
+                return False, False
 
-        race = player.race.lower()
-        race = RACES.get(race, race)
-        p_race = participant.race.lower()
-        p_race = RACES.get(p_race, p_race)
-        is_offrace = race and (race != p_race)
-        return True, is_offrace
+        if player.race:
+            race = player.race.lower()
+            race = RACES.get(race, race)
+            return True, race != participant.clean_race
+        return True, False
 
     def find_match_summary(self, players: list[MatchPlayer]):
         for i, ms_entry in enumerate(self.match_summaries):
@@ -2719,9 +2717,6 @@ class Converter:
         # Sort changes
         changes = sorted(changes, reverse=True)
 
-        print("Before")
-        print("\n".join(f"({change[:-1]})" for change in changes))
-
         # Clean changes: remove changes with nested changes
         new_changes = []
         for i, (start, end, new_text) in enumerate(changes):
@@ -2732,9 +2727,6 @@ class Converter:
             else:
                 new_changes.append((start, end, new_text))
         changes = new_changes
-
-        print("After")
-        print("\n".join(f"({change[:-1]})" for change in changes))
 
         # Apply changes
         converted = self.text

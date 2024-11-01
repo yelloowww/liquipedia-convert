@@ -1,4 +1,4 @@
-{
+RACES = {
     "p": "p",
     "protoss": "p",
     "t": "t",
@@ -11,5 +11,5 @@
     "tp": "tp",
     "tz": "tz",
     "zp": "zp",
-    "zt": "zt"
+    "zt": "zt",
 }
