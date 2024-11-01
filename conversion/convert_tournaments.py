@@ -1679,8 +1679,16 @@ class Converter:
                     scores[i - 1] = clean_arg_value(x)
                 if x := tpl.get_arg(f"{prefix}score2"):
                     scores2[i - 1] = clean_arg_value(x)
+                    if match_index != len(conversion):
+                        self.warn_for_bracket(
+                            id_, f"[{match_id}] score2 for this match may not be supported correctly in this bracket"
+                        )
                 if x := tpl.get_arg(f"{prefix}score3"):
                     scores3[i - 1] = clean_arg_value(x)
+                    if match_index != len(conversion):
+                        self.warn_for_bracket(
+                            id_, f"[{match_id}] score3 for this match may not be supported correctly in this bracket"
+                        )
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
                 if player.name:
@@ -1725,15 +1733,8 @@ class Converter:
                             # If this is the last match, move the second score to RxMBR
                             text_reset += f"|score={scores2[i - 1]}"
                         else:
-                            self.warn_for_bracket(
-                                id_,
-                                f"[{match_id}] score2 for this match may not be supported correctly in this bracket",
-                            )
                             text += f"|score2={scores2[i - 1]}"
                     if scores3[i - 1]:
-                        self.warn_for_bracket(
-                            id_, f"[{match_id}] score3 may not be supported correctly in this bracket"
-                        )
                         text += f"|score3={scores3[i - 1]}"
                     text += "}}"
                     text_reset += "}}"
