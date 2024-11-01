@@ -1250,7 +1250,7 @@ class Converter:
         if empty_map_index is not None:
             map_texts = map_texts[: empty_map_index - 1]
 
-        is_walkover_set = clean_arg_value(tpl.get_arg("walkover")) in ("1", "2")
+        is_walkover_set = clean_arg_value(tpl.get_arg("walkover")) in ("0", "1", "2")
 
         i = 1
         while True:
@@ -1331,8 +1331,15 @@ class Converter:
 
         # If bestof is set, we do not copy the winner/bestof arguments
         ignore_list = []
-        if bestof or is_walkover:
+        if is_walkover:
             ignore_list.append("winner")
+        elif bestof:
+            winner = clean_arg_value(tpl.get_arg("winner"))
+            if winner in ("1", "2"):
+                w = int(winner) - 1
+                if num_scores[w] < num_scores[1 - w]:
+                    self.info += f"⚠️ {info_id_text} bestof={bestof} => different winner\n"
+                ignore_list.append("winner")
         if bestof_text_inserted:
             ignore_list.append("bestof")
         for i in vodgames_moved_to_map:
@@ -1612,7 +1619,7 @@ class Converter:
                 if empty_map_index is not None:
                     map_texts = map_texts[: empty_map_index - 1]
 
-                is_walkover_set = clean_arg_value(tpl.get_arg("walkover")) in ("1", "2")
+                is_walkover_set = clean_arg_value(tpl.get_arg("walkover")) in ("0", "1", "2")
 
                 i = 1
                 while True:
@@ -1780,14 +1787,20 @@ class Converter:
                         self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[0]}win={wins[0]}")
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
-                    elif bestof is None:
+                    elif bestof is not None:
+                        if scores[0] < scores[1]:
+                            self.warn_for_bracket(id_, f"[{match_id}] bestof={bestof} => different winner")
+                    else:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
                         self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[1]}win={wins[1]}")
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
-                    elif bestof is None:
+                    elif bestof is not None:
+                        if scores[0] > scores[1]:
+                            self.warn_for_bracket(id_, f"[{match_id}] bestof={bestof} => different winner")
+                    else:
                         match_texts1.append("|winner=2")
                 else:
                     # Either no winner or two winners (!)
