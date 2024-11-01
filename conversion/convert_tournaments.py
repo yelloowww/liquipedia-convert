@@ -1723,7 +1723,7 @@ class Converter:
                             self.warn_for_bracket(
                                 id_,
                                 f"[{match_id}] Discrepancy between"
-                                f" map score {map_scores[i - 1]}"
+                                f" map score {map_scores[i - 1] + advantage}"
                                 f" and score {scores[i - 1]} ({player.name})",
                             )
                     elif not map_texts and not is_walkover_set:
