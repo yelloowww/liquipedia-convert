@@ -1301,6 +1301,7 @@ class Converter:
                     text += f"|score="
                 elif map_texts and not has_a_non_empty_map and sum(map_scores) > 0:
                     scores[i - 1] = str(map_scores[i - 1])
+                    num_scores[i - 1] = map_scores[i - 1]
                     text += f"|score={scores[i - 1]}"
                 text += "}}"
                 texts.append(text)
