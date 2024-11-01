@@ -67,7 +67,7 @@ LEGACY_ROUND_HEADER_PATTERN = rc(r"^(?:([RL])\d+|Q)$", re.UNICODE)
 SCORE_ADVANTAGE_PATTERN = rc(
     r"<abbr title=\"Winner(?:'s|s') [bB]racket advantage of 1 (?:map|game)\"> *(\d+) *</abbr>", re.UNICODE
 )
-STRIKETHROUGH_PATTERN = rc(r"<s>((?:(?!<\/s>).)+)</s>", re.UNICODE)
+STRIKETHROUGH_PATTERN = rc(r"<(s(?:trike)?|del)>((?:(?!<\/s).)+)</\1>", re.UNICODE | re.IGNORECASE)
 NOINCLUDE_LEGACY_BRACKET_PATTERN = rc(
     r"\{\{<noinclude>LegacyBracket(.+?)<\/noinclude><includeonly>DisplayBracket<\/includeonly>", re.UNICODE
 )
@@ -653,10 +653,10 @@ class Converter:
                 del p
                 continue
             has_a_player = True
-            if "<s>" in val:
+            if STRIKETHROUGH_PATTERN.search(val) is not None:
                 p.dq = True
                 if m := STRIKETHROUGH_PATTERN.match(p.name):
-                    p.name = m.group(1)
+                    p.name = m.group(2)
                     if p.link == p.name:
                         p.link = ""
             if notes_m := NOTE_PATTERN.findall(val):
