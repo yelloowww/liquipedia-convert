@@ -1693,8 +1693,10 @@ class Converter:
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
                 if player.name:
-                    text = f"|opponent{i}={{{{1Opponent|{player.name}"
-                    if player.name != "BYE":
+                    if player.name == "BYE":
+                        text = f"|opponent{i}={{{{LiteralOpponent|BYE"
+                    else:
+                        text = f"|opponent{i}={{{{1Opponent|{player.name}"
                         if self.options["bracket_details"] == "remove_if_stored":
                             found, offrace = self.look_for_player(player)
                             if not found:
