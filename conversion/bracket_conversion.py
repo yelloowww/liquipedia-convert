@@ -1359,8 +1359,8 @@ ROUND_HEADERS = {
         "R4": "R3M1qualifiedHeader",
         "L1": "R1M5header",
         "L2": "R2M3header",
-        "L3": "R3M1qualifiedHeader",
-        "L4": "R3M1qualifiedHeader",
+        "L3": "R3M1header",
+        "L4": "R3M3qualifiedHeader",
     },
     "3Qual-16DEBracket": {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 6) if i != 3},
