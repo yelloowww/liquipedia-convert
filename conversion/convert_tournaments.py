@@ -75,6 +75,7 @@ LEGACY_PLAYER_PREFIX_PATTERN = rc(r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|te
 LEGACY_GAME_DETAILS_PATTERN = rc(r"^(R\d+G\d+)details$", re.UNICODE)
 PARTICIPANT_TABLE_PARTICIPANT_PATTERN = rc(r"^p?(\d+)$")
 BO_PATTERN = rc(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
+ABBR_BO_PATTERN = rc(r"\{\{ *Abbr/Bo(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
 
 SHORT_RACES = ("p", "t", "z", "r")
@@ -1487,6 +1488,7 @@ class Converter:
                     new_arg = ROUND_HEADERS[legacy_bracket_name][arg_name]
                     new_value = clean_arg_value(x).replace("'''", "")
                     new_value = BO_PATTERN.sub("Bo\\1", new_value)
+                    new_value = ABBR_BO_PATTERN.sub("Bo\\1", new_value)
                     if isinstance(new_arg, tuple):
                         bracket_texts += [f"|{new_arg_name}={new_value}" for new_arg_name in new_arg]
                     else:
