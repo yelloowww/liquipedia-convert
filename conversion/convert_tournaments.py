@@ -1210,6 +1210,8 @@ class Converter:
             if map_ == "Unknown":
                 map_ = ""
             map_winner = clean_arg_value(x_win)
+            if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
+                self.info += f"⚠️ {info_id_text} Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)\n"
 
             map_text = f"|map{i}={{{{Map"
             map_map_text = f"|map={map_}"
@@ -1584,6 +1586,8 @@ class Converter:
                     if map_ == "Unknown":
                         map_ = ""
                     map_winner = clean_arg_value(x_win)
+                    if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
+                        self.warn_for_bracket(id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)")
 
                     map_text = f"|map{i}={{{{Map"
                     map_map_text = f"|map={map_}"
@@ -1647,7 +1651,7 @@ class Converter:
                     if not any(text.startswith(f"|vodgame{i}=") for i in vodgames_moved_to_map)
                 ]
 
-                # If the bestof argument and it has an integer value, then use it
+                # If the bestof argument exists and it has an integer value, then use it
                 if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
                     try:
                         bestof = int(bestof)
