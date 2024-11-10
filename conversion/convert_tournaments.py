@@ -2272,19 +2272,11 @@ class Converter:
 
     def add_participants_from_participant_table(self, tpl: wtp.Template) -> list[Participant]:
         participants: list[Participant] = []
-        try:
-            i = min(
-                int(m.group(1))
-                for x in tpl.arguments
-                if (m := PARTICIPANT_TABLE_PARTICIPANT_PATTERN.match(x.name.strip()))
-            )
-        except ValueError:
-            i = 1
-        while (x := tpl.get_arg(str(i))) or (x := tpl.get_arg(f"p{i}")):
+        for i in (m[1] for x in tpl.arguments if (m := PARTICIPANT_TABLE_PARTICIPANT_PATTERN.match(x.name.strip()))):
+            x = tpl.get_arg(str(i)) or tpl.get_arg(f"p{i}")
             p = Participant(name=clean_arg_value(x))
             if not p.name:
                 del p
-                i += 1
                 continue
             if x := tpl.get_arg(f"p{i}link"):
                 p.link = clean_arg_value(x)
@@ -2296,7 +2288,6 @@ class Converter:
                 p.race = clean_arg_value(x)
             self.participants[p.name] = p
             participants.append(p)
-            i += 1
         return participants
 
     def add_participants_from_group_table_league(self, tpl: wtp.Template) -> list[Participant]:
