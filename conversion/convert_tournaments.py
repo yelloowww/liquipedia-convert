@@ -1791,8 +1791,14 @@ class Converter:
                             bestof_moves[-1].source = match_id
                         if not is_new_round:
                             self.warn_for_bracket(id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}")
-            # By default, bestof is the same as previously
-            match.bestof = bestof or prev_bestof
+            if match.bestof is not None:
+                if bestof != match.bestof:
+                    self.warn_for_bracket(
+                        id_, f"[{match_id}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})"
+                    )
+            else:
+                # By default, bestof is the same as previously
+                match.bestof = bestof or prev_bestof
 
             if "W" not in scores:
                 if wins[0] and not wins[1]:
