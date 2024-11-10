@@ -2128,6 +2128,8 @@ class Converter:
 
     def look_for_player(self, player: MatchPlayer) -> tuple[bool, bool]:
         if player.name not in self.participants:
+            if player.name.endswith("*"):
+                self.info += f"⚠️ Asterisk in player name {player.name}\n"
             # found, is_offrace
             return False, False
 
