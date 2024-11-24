@@ -771,7 +771,7 @@ class Converter:
                 result += f"|{{{{ParticipantSection|title={section.title}\n"
             for i, p in enumerate(section.participants, start=1):
                 result += f"|{p.name}"
-                if p.link:
+                if p.link and p.link != p.name:
                     result += f"|p{i}link={p.link}"
                 if self.options["player_details"]:
                     result += f"|p{i}flag={p.flag}|p{i}race={p.race}"
