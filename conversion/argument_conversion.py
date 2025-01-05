@@ -12,8 +12,16 @@ def _wrap_arguments(args: dict[str, str | int | None]) -> tuple[str, dict[str, s
 PRIZE_POOL_START_ARGUMENTS = _wrap_arguments(
     {
         "localcurrency": "localcurrency",
-        "points": "points",
+        "points": None,
+        "(\\d+)points": None,
         "cutafter": "cutafter",
+        "tier": "tier",
+        "series": "series",
+        "tournament(\\d*)": "tournament\\1",
+        "tournament name": "tournament name",
+        "matchGroupId(\\d*)": "matchGroupId\\1",
+        "importLimit": None,
+        "award": None,
         "\\d+": None,
     }
 )
@@ -21,28 +29,21 @@ PRIZE_POOL_SLOT_ARGUMENTS = _wrap_arguments(
     {
         "place": "place",
         "usdprize": "usdprize",
-        "localprize": "localprize1",
-        "points": "points",
-        "(?:flag|race|link)?\\d+": None,
-        "team\\d+": None,
-        "lastvs(?:flag|race|link|score)?\\d+": None,
+        "localprize": "localprize",
+        "award": "award",
+        "count": "count",
+        "date": "date",
+        "(\\d*)points": None,
+        "(?:flag|race|link)?\\d+(?:p[12])?": None,
+        "team\\d+(?:p[12])?": None,
+        "lastvs(?:flag|race|link|score)?\\d+(?:p[12])?": None,
         "lastscore\\d+": None,
         "woto\\d+": None,
         "wofrom\\d+": None,
         "wdl\\d+": None,
-        "date": None,
         "date\\d+": None,
-    }
-)
-PRIZE_POOL_SLOT_TEAM_ARGUMENTS = _wrap_arguments(
-    {
-        "place": "place",
-        "usdprize": "usdprize",
-        "localprize": "localprize1",
-        "points": "points",
-        "lastvs\\d+": None,
-        "lastvsscore\\d+": None,
-        "lastscore\\d+": None,
+        "usdprize\\d+": None,
+        "localprize\\d+": None,
     }
 )
 MATCH_SUMMARY_ARGUMENTS = _wrap_arguments(

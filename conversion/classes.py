@@ -42,22 +42,36 @@ class MatchPlayer:
 
 
 @dataclass(slots=True)
-class PrizePoolPlayer:
-    name: str = ""
-    link: str = ""
-    flag: str = ""
-    race: str = ""
-    team: str = ""
+class PrizePoolOpponent:
+    name1: str = ""
+    link1: str = ""
+    flag1: str = ""
+    race1: str = ""
+    team1: str = ""
+    name2: str = ""
+    link2: str = ""
+    flag2: str = ""
+    race2: str = ""
+    team2: str = ""
+    lastvsname1: str = ""
+    lastvslink1: str = ""
+    lastvsflag1: str = ""
+    lastvsrace1: str = ""
+    lastvsteam1: str = ""
+    lastvsname2: str = ""
+    lastvslink2: str = ""
+    lastvsflag2: str = ""
+    lastvsrace2: str = ""
+    lastvsteam2: str = ""
     lastscore: str = ""
-    lastvs: str = ""
-    lastvslink: str = ""
-    lastvsflag: str = ""
-    lastvsrace: str = ""
     lastvsscore: str = ""
     wdl: str = ""
     woto: str = ""
     wofrom: str = ""
     date: str = ""
+    usdprize: str = ""
+    localprize: str = ""
+    points: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

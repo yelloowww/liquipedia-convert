@@ -74,10 +74,13 @@ NOINCLUDE_LEGACY_BRACKET_PATTERN = rc(
 LEGACY_PLAYER_PREFIX_PATTERN = rc(r"^(R\d+[DW]\d+)(?:flag|race|win|score[23]?|team|short|literal)?$", re.UNICODE)
 LEGACY_GAME_DETAILS_PATTERN = rc(r"^(R\d+G\d+)details$", re.UNICODE)
 PARTICIPANT_TABLE_PARTICIPANT_PATTERN = rc(r"^p?(\d+)$")
+GROUP_TABLE_LEAGUE_PLAYER_PATTERN = PARTICIPANT_TABLE_PARTICIPANT_PATTERN
 BO_PATTERN = rc(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ABBR_BO_PATTERN = rc(r"\{\{ *Abbr/Bo(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
 CROSS_TABLE_PLAYER_PATTERN = rc(r"^player(\d+)$", re.UNICODE)
+PRIZE_POOL_POINTS_ARG_PATTERN = rc(r"^(\d*)points$", re.UNICODE)
+PRIZE_POOL_SEED_PATTERN = rc(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]", re.UNICODE)
 
 SHORT_RACES = ("p", "t", "z", "r")
 
@@ -188,6 +191,7 @@ class Converter:
         parsed_tables_and_templates = sorted(self.parsed.tables + self.parsed.templates, key=lambda obj: obj.span)
 
         # Parse tables and templates (Pass 2)
+        self.prize_pool_type: str | None = None
         self.prize_pool_text = ""
         self.prize_pool_start_pos = -1
         self.prize_texts = []
@@ -259,52 +263,30 @@ class Converter:
         if not self.options["prize_pool_table_do_not_convert"]:
             match name:
                 case "Prize pool start":
-                    texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
-                    if self.options["import_limit"] == "fixed":
-                        texts.append(f"|importLimit={self.options['import_limit_fixed_val']}")
-                    elif self.options["import_limit"] == "guess":
-                        texts.append(f"|importLimit=%@%£%$%")
-                    self.prize_pool_text = "{{SoloPrizePool" + "".join(texts) + "\n"
-                    self.prize_pool_start_pos = tpl.span[0]
-                    self.prize_texts = []
-                    self.prize_pool_max_placement = 0
-                case "Prize pool slot":
+                    if (x := tpl.get_arg("award")) and read_bool(clean_arg_value(x)):
+                        self.prize_pool_type = "Award"
+                    else:
+                        self.prize_pool_type = "Solo"
+                    self.convert_prize_pool_start(tpl)
+                case "Prize pool start team":
+                    self.prize_pool_type = "Team"
+                    self.convert_prize_pool_start(tpl)
+                case "Prize pool start 2v2":
+                    self.prize_pool_type = "Duo"
+                    self.convert_prize_pool_start(tpl)
+                case "Prize pool start award":
+                    self.prize_pool_type = "Award"
+                    self.convert_prize_pool_start(tpl)
+                case "Prize pool slot" | "Prize pool slot team" | "Prize pool slot 2v2" | "Prize pool slot award":
                     if pps_result := self.convert_prize_pool_slot(tpl):
                         self.prize_texts.append(pps_result)
-                case "LegacyPrizePoolEnd":
-                    prize_pool_end_pos = tpl.span[1]
-                    if self.options["import_limit"] == "guess":
-                        self.prize_pool_text = self.prize_pool_text.replace(
-                            "%@%£%$%", str(self.prize_pool_max_placement)
-                        )
-                    self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
-                    self.prize_pool_text += "\n}}"
-                    self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
-                    self.counter["Prize pool"] += 1
-
-                case "Prize pool start team":
-                    texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
-                    if self.options["import_limit"] == "fixed":
-                        texts.append(f"|importLimit={self.options['import_limit_fixed_val']}")
-                    elif self.options["import_limit"] == "guess":
-                        texts.append(f"|importLimit=%@%£%$%")
-                    self.prize_pool_text = "{{TeamPrizePool" + "".join(texts) + "\n"
-                    self.prize_pool_start_pos = tpl.span[0]
-                    self.prize_texts = []
-                    self.prize_pool_max_placement = 0
-                case "Prize pool slot team":
-                    if ppst_result := self.convert_prize_pool_slot_team(tpl):
-                        self.prize_texts.append(ppst_result)
-                case "LegacyPrizePoolEnd team":
-                    prize_pool_end_pos = tpl.span[1]
-                    if self.options["import_limit"] == "guess":
-                        self.prize_pool_text = self.prize_pool_text.replace(
-                            "%@%£%$%", str(self.prize_pool_max_placement)
-                        )
-                    self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
-                    self.prize_pool_text += "\n}}"
-                    self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
-                    self.counter["Prize pool team"] += 1
+                case (
+                    "LegacyPrizePoolEnd"
+                    | "LegacyPrizePoolEnd team"
+                    | "LegacyPrizePoolEnd 2v2"
+                    | "LegacyPrizePoolEnd award"
+                ):
+                    self.convert_prize_pool_end(tpl)
 
         match name:
             case "Legacy Match list start" | "LegacyMatchList":
@@ -817,82 +799,156 @@ class Converter:
         result += "}}\n}}"
         return result
 
+    def convert_prize_pool_start(self, tpl: wtp.Template) -> str | None:
+        texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
+
+        self.prize_pool_points: dict[int, list[str, str]] = {}
+        self.prize_pool_point_indexes_with_suffix: list[int] = []
+        self.prize_pool_freetext: list[str] = []
+        self.prize_pool_hardware_point_index = None
+        for x in tpl.arguments:
+            arg_name = x.name.strip()
+            if m := PRIZE_POOL_POINTS_ARG_PATTERN.match(arg_name):
+                arg_val = clean_arg_value(x)
+                point_index = int(m[1]) if m[1] else 1
+                if arg_val.lower() not in ("seed", "hardware"):
+                    self.prize_pool_point_indexes_with_suffix.append(point_index)
+                    point_suffix = len(self.prize_pool_point_indexes_with_suffix)
+                else:
+                    point_suffix = None
+                self.prize_pool_points[point_index] = [point_suffix, arg_val]
+                if arg_val.lower() == "hardware":
+                    self.prize_pool_hardware_point_index = point_index
+        # If only one type of point with suffix, get rid of the suffix
+        if len(self.prize_pool_point_indexes_with_suffix) == 1:
+            self.prize_pool_points[self.prize_pool_point_indexes_with_suffix[0]][0] = ""
+        for point_suffix, point_name in self.prize_pool_points.values():
+            if point_suffix is not None:
+                texts.append(f"|points{point_suffix}={point_name}")
+        if self.prize_pool_hardware_point_index is not None:
+            self.prize_pool_freetext.append("Hardware")
+            texts.append(f"|freetext1=Hardware")
+
+        if self.options["import_limit"] == "fixed":
+            texts.append(f"|importLimit={self.options['import_limit_fixed_val']}")
+        elif (x := tpl.get_arg("importLimit")) and (limit := clean_arg_value(x)):
+            texts.append(f"|importLimit={limit}")
+        elif self.options["import_limit"] == "guess":
+            texts.append(f"|importLimit=%@%£%$%")
+
+        self.prize_pool_text = f"{{{{{self.prize_pool_type}PrizePool"
+        self.prize_pool_text += "".join(texts)
+        self.prize_pool_start_pos = tpl.span[0]
+        self.prize_texts: list[str] = []
+        self.prize_pool_max_placement = 0
+        self.prize_pool_qual_tuples: list[tuple[str, str]] = []
+
     def convert_prize_pool_slot(self, tpl: wtp.Template) -> str | None:
         texts: list[str] = []
+        is_award = self.prize_pool_type == "Award"
+        args = {x.name.strip(): clean_arg_value(x) for x in tpl.arguments}
 
         texts = self.arguments_to_texts(PRIZE_POOL_SLOT_ARGUMENTS, tpl)
 
-        if self.options["prize_pool_opponent_details"] or self.options["prize_pool_opponent_last_results"]:
+        for i, (point_suffix, points_name) in self.prize_pool_points.items():
+            if (i == 1 and (val := args.get("points"))) or (val := args.get(f"{i}points")):
+                if points_name == "seed":
+                    if m := PRIZE_POOL_SEED_PATTERN.match(val):
+                        qual_tuple = [(s or "").strip() for s in m.groups()]
+                        if qual_tuple in self.prize_pool_qual_tuples:
+                            qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
+                        else:
+                            self.prize_pool_qual_tuples.append(qual_tuple)
+                            qual_index = len(self.prize_pool_qual_tuples)
+                        texts.append(f"|qualified{qual_index}=1")
+                    elif val.lower() == "paid trip":
+                        if "Seed" in self.prize_pool_freetext:
+                            freetext_index = self.prize_pool_freetext.index("Seed") + 1
+                        else:
+                            self.prize_pool_freetext.append("Seed")
+                            freetext_index = len(self.prize_pool_freetext)
+                        texts.append(f"|freetext{freetext_index}={val}")
+                elif i == self.prize_pool_hardware_point_index:
+                    texts.append(f"|freetext1={val}")
+                else:
+                    if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
+                        self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})\n"
+                    texts.append(f"|points{point_suffix}={val}")
+
+        slot_size = 100
+        if place := args.get("place"):
+            place_split = place.split("-")
+            if len(place_split) == 1:
+                slot_size = 1
+            else:
+                slot_size = int(place_split[1]) - int(place_split[0]) + 1
+        slot_opp_count = slot_size
+        if count := args.get("count"):
+            slot_opp_count = int(count)
+
+        if is_award or self.options["prize_pool_opponent_details"] or self.options["prize_pool_opponent_last_results"]:
             detail_texts: list[str] = []
             i = 1
-            date = None
-            if x := tpl.get_arg("date"):
-                date = clean_arg_value(x)
-            while x := tpl.get_arg(str(i)):
-                player = PrizePoolPlayer(name=clean_arg_value(x))
-                if m := PIPE_PATTERN.match(player.name):
-                    player.link, player.name = m.groups()
-                if x := tpl.get_arg(f"link{i}"):
-                    player.link = clean_arg_value(x)
-                if self.options["prize_pool_opponent_details"]:
-                    if x := tpl.get_arg(f"flag{i}"):
-                        player.flag = clean_arg_value(x)
-                    if x := tpl.get_arg(f"race{i}"):
-                        player.race = clean_arg_value(x)
-                    if x := tpl.get_arg(f"team{i}"):
-                        player.team = clean_arg_value(x)
+            for i in range(1, slot_opp_count + 1):
+                opp = PrizePoolOpponent()
+                if is_award or self.options["prize_pool_opponent_details"]:
+                    read_prize_pool_opponent_args(opp, args, i, "", self.prize_pool_type)
                 if self.options["prize_pool_opponent_last_results"]:
-                    if x := tpl.get_arg(f"lastscore{i}"):
-                        player.lastscore = clean_arg_value(x)
-                    if x := tpl.get_arg(f"lastvs{i}"):
-                        player.lastvs = clean_arg_value(x)
-                    if x := tpl.get_arg(f"lastvslink{i}"):
-                        player.lastvslink = clean_arg_value(x)
-                    if x := tpl.get_arg(f"lastvsflag{i}"):
-                        player.lastvsflag = clean_arg_value(x)
-                    if x := tpl.get_arg(f"lastvsrace{i}"):
-                        player.lastvsrace = clean_arg_value(x)
-                    if x := tpl.get_arg(f"lastvsscore{i}"):
-                        player.lastvsscore = clean_arg_value(x)
-                    if x := tpl.get_arg(f"woto{i}"):
-                        player.woto = clean_arg_value(x)
-                    if x := tpl.get_arg(f"wofrom{i}"):
-                        player.wofrom = clean_arg_value(x)
-                    if x := tpl.get_arg(f"wdl{i}"):
-                        player.wdl = clean_arg_value(x)
-                    if x := tpl.get_arg(f"date{i}"):
-                        player.date = clean_arg_value(x)
-                if player.name:
-                    text = f"|{{{{Opponent|{player.name}"
-                    if self.options["prize_pool_opponent_details"]:
-                        text += f"|flag={player.flag}|race={player.race}"
-                    if player.link:
-                        text += f"|link={player.link}"
-                    if self.options["prize_pool_opponent_details"]:
-                        if player.team:
-                            text += f"|team={player.team}"
-                    if self.options["prize_pool_opponent_last_results"]:
-                        if player.wdl:
-                            text += f"|wdl={player.wdl}"
-                        elif player.lastvs:
-                            if player.lastvslink:
-                                text += f"|lastvs={player.lastvslink}"
-                            else:
-                                text += f"|lastvs={player.lastvs}"
-                            if player.woto:
-                                text += f"|lastvsscore=L-W"
-                            elif player.wofrom:
-                                text += f"|lastvsscore=W-L"
-                            elif player.lastscore and player.lastvsscore:
-                                text += f"|lastvsscore={player.lastscore}-{player.lastvsscore}"
-                        if player.date or date:
-                            text += f"|date={player.date or date}"
+                    read_prize_pool_opponent_args(opp, args, i, "lastvs", self.prize_pool_type)
+                    if (x := tpl.get_arg(f"lastscore{i}")) or (i == 1 and (x := tpl.get_arg(f"lastscore"))):
+                        opp.lastscore = clean_arg_value(x)
+                    if (x := tpl.get_arg(f"lastvsscore{i}")) or (i == 1 and (x := tpl.get_arg(f"lastvsscore"))):
+                        opp.lastvsscore = clean_arg_value(x)
+                    if (x := tpl.get_arg(f"woto{i}")) or (i == 1 and (x := tpl.get_arg(f"woto"))):
+                        opp.woto = clean_arg_value(x)
+                    if (x := tpl.get_arg(f"wofrom{i}")) or (i == 1 and (x := tpl.get_arg(f"wofrom"))):
+                        opp.wofrom = clean_arg_value(x)
+                    if (x := tpl.get_arg(f"wdl{i}")) or (i == 1 and (x := tpl.get_arg(f"wdl"))):
+                        opp.wdl = clean_arg_value(x)
+                if x := tpl.get_arg(f"usdprize{i}"):
+                    opp.usdprize = clean_arg_value(x)
+                if x := tpl.get_arg(f"localprize{i}"):
+                    opp.localprize = clean_arg_value(x)
+                for j in self.prize_pool_points.keys():
+                    if (x := tpl.get_arg(f"{j}points{i}")) or (j == 1 and (x := tpl.get_arg(f"points{i}"))):
+                        opp.points[j] = clean_arg_value(x)
+                if (is_award or self.options["prize_pool_opponent_last_results"]) and (x := tpl.get_arg(f"date{i}")):
+                    opp.date = clean_arg_value(x)
+
+                text = "|{{Opponent"
+                text += prize_pool_opponent_string(opp, "", self.prize_pool_type)
+                if opp.wdl:
+                    text += f"|wdl={opp.wdl}"
+                elif opp.lastvsname1 or opp.lastvsname2:
+                    text += f"|lastvs={{{{{self.prize_pool_type}Opponent"
+                    text += prize_pool_opponent_string(opp, "lastvs", self.prize_pool_type)
                     text += "}}"
+                    if opp.woto:
+                        text += f"|lastvsscore=L-W"
+                    elif opp.wofrom:
+                        text += f"|lastvsscore=W-L"
+                    elif opp.lastscore and opp.lastvsscore:
+                        text += f"|lastvsscore={opp.lastscore}-{opp.lastvsscore}"
+                if opp.usdprize:
+                    text += f"|usdprize={opp.usdprize}"
+                if opp.localprize:
+                    text += f"|localprize={opp.localprize}"
+                for j, (point_suffix, points_name) in self.prize_pool_points.items():
+                    if j in opp.points and points_name.lower() not in ("seed", "hardware"):
+                        if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(opp.points[j]) is None:
+                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({opp.points[j]})\n"
+                        text += f"|points{point_suffix}={opp.points[j]}"
+                if opp.date:
+                    text += f"|date={opp.date}"
+                text += "}}"
+                if text != "|{{Opponent}}":
                     detail_texts.append(text)
                 i += 1
+
             if len(detail_texts) > 1:
                 # Insert a new line if there are multiple players in the slot
-                texts += [f"\n {text}" for text in detail_texts]
+                texts += [f"\n  {text}" for text in detail_texts]
+                texts.append("\n")
             elif detail_texts:
                 texts.append(detail_texts[0])
 
@@ -905,34 +961,28 @@ class Converter:
 
         return "{{Slot" + "".join(texts) + "}}"
 
-    def convert_prize_pool_slot_team(self, tpl: wtp.Template) -> str | None:
-        texts: list[str] = []
+    def convert_prize_pool_end(self, tpl: wtp.Template) -> None:
+        prize_pool_end_pos = tpl.span[1]
 
-        texts = self.arguments_to_texts(PRIZE_POOL_SLOT_TEAM_ARGUMENTS, tpl)
+        for i, name in enumerate(self.prize_pool_freetext, start=1):
+            self.prize_pool_text += f"|freetext{i}={name}"
 
-        if self.options["prize_pool_opponent_details"]:
-            detail_texts: list[str] = []
-            i = 1
-            while x := tpl.get_arg(str(i)):
-                team_name = clean_arg_value(x)
-                if team_name:
-                    text = f"|{{{{Opponent|{team_name}}}}}"
-                    detail_texts.append(text)
-                i += 1
-            if len(detail_texts) > 1:
-                # Insert a new line if there are multiple players in the slot
-                texts += [f"\n {text}" for text in detail_texts]
-            elif detail_texts:
-                texts.append(detail_texts[0])
+        if self.options["import_limit"] == "guess":
+            self.prize_pool_text = self.prize_pool_text.replace("%@%£%$%", str(self.prize_pool_max_placement))
 
-        if (
-            (x := tpl.get_arg("place"))
-            and (m := PLACE_PATTERN.search(clean_arg_value(x)))
-            and (place := int(m.group(0))) > self.prize_pool_max_placement
-        ):
-            self.prize_pool_max_placement = place
+        for i, (link, name) in enumerate(self.prize_pool_qual_tuples, start=1):
+            self.prize_pool_text += f"|qualifies{i}={link}"
+            if name:
+                self.prize_pool_text += f"|qualifies{i}name={name}"
 
-        return "{{Slot" + "".join(texts) + "}}"
+        # Move "|importLimit=..." to the end of the line
+        self.prize_pool_text = IMPORT_LIMIT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
+
+        self.prize_pool_text += "\n"
+        self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
+        self.prize_pool_text += "\n}}"
+        self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
+        self.counter[f"{self.prize_pool_type} prize pool"] += 1
 
     def convert_match_summary(self, tpl: wtp.Template) -> list[str] | None:
         players = [MatchPlayer(), MatchPlayer()]
@@ -3073,6 +3123,68 @@ def transform_string_to_list(input_str):
         else:
             result.append(int(part))
     return result
+
+
+def read_bool(val: str | bool | int) -> bool:
+    return val in ("true", "t", "yes", "y", True, "1", 1)
+
+
+def read_prize_pool_opponent_args(opp, args, i, prefix, type_):
+    if type_ in ("Solo", "Team", "Award"):
+        name = args.get(f"{prefix}{i}", "")
+        link = ""
+        if name and (m := PIPE_PATTERN.match(name)):
+            link, name = m.groups()
+        setattr(opp, f"{prefix}name1", name)
+        setattr(opp, f"{prefix}link1", args.get(f"{prefix}link{i}", link))
+        setattr(opp, f"{prefix}flag1", args.get(f"{prefix}flag{i}", ""))
+        setattr(opp, f"{prefix}race1", args.get(f"{prefix}race{i}", ""))
+        setattr(opp, f"{prefix}team1", args.get(f"{prefix}team{i}", ""))
+        return
+
+    if type_ == "Duo":
+        for player_index in range(1, 3):
+            if prefix:
+                name = args.get(f"{prefix}{i}p{player_index}", "")
+            else:
+                name_index = (i - 1) * 2 + player_index
+                name = args.get(str(name_index), "")
+            link = ""
+            if name and (m := PIPE_PATTERN.match(name)):
+                link, name = m.groups()
+            setattr(opp, f"{prefix}name{player_index}", name)
+            setattr(opp, f"{prefix}link{player_index}", args.get(f"{prefix}link{i}p{player_index}", link or ""))
+            setattr(opp, f"{prefix}flag{player_index}", args.get(f"{prefix}flag{i}p{player_index}", ""))
+            setattr(opp, f"{prefix}race{player_index}", args.get(f"{prefix}race{i}p{player_index}", ""))
+            setattr(opp, f"{prefix}team{player_index}", args.get(f"{prefix}team{i}p{player_index}", ""))
+
+
+def prize_pool_opponent_string(opp, prefix, type_):
+    text = ""
+    if type_ in ("Solo", "Team", "Award"):
+        if name := getattr(opp, f"{prefix}name1"):
+            text += f"|{name}"
+        if flag := getattr(opp, f"{prefix}flag1"):
+            text += f"|flag={flag}"
+        if race := getattr(opp, f"{prefix}race1"):
+            text += f"|race={race}"
+        if link := getattr(opp, f"{prefix}link1"):
+            text += f"|link={link}"
+        if team := getattr(opp, f"{prefix}team1"):
+            text += f"|team={team}"
+    elif type_ == "Duo":
+        for player_index in range(1, 3):
+            if name := getattr(opp, f"{prefix}name{player_index}"):
+                text += f"|{name}"
+            if flag := getattr(opp, f"{prefix}flag{player_index}"):
+                text += f"|flag{player_index}={flag}"
+            if race := getattr(opp, f"{prefix}race{player_index}"):
+                text += f"|race{player_index}={race}"
+            if link := getattr(opp, f"{prefix}link{player_index}"):
+                text += f"|link{player_index}={link}"
+            if team := getattr(opp, f"{prefix}team{player_index}"):
+                text += f"|team{player_index}={team}"
+    return text
 
 
 def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str, str]:
