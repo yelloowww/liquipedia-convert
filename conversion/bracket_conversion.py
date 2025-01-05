@@ -1046,6 +1046,13 @@ BRACKETS = {
         **{f"R5M{i}": (f"R5D{i}", f"R5W{i}", f"R5G{i}") for i in range(1, 9)},
         **{f"R6M{i}": (f"R6D{i}", f"R6W{i}", f"R6G{i}") for i in range(1, 9)},
     },
+    "4Qual-16Top8DEBracket": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 9)},
+        **{f"R2M{i}": (f"R2W{i * 2 - 1}", f"R2W{i * 2}", f"R2G{i}") for i in range(1, 5)},
+        **{f"R3M{i}": (f"R3W{i * 2 - 1}", f"R3W{i * 2}", f"R3G{i}") for i in range(1, 3)},
+        **{f"R2M{4 + i}": (f"R2D{i * 2 - 1}", f"R2D{i * 2}", f"R2G{4 + i}") for i in range(1, 3)},
+        **{f"R3M{2 + i}": (f"R3D{i}", f"R3W{4 + i}", f"R3G{2 + i}") for i in range(1, 3)},
+    },
 }
 
 ROUND_HEADERS = {
@@ -1852,6 +1859,13 @@ ROUND_HEADERS = {
         **{f"R{i}": f"R{i}M1header" for i in range(1, 7)},
         "R7": "qualifiedHeader",
     },
+    "4Qual-16Top8DEBracket": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 3)},
+        "R4": "R3M1qualifiedHeader",
+        "L1": "R2M5header",
+        "L2": "R3M3header",
+        "L4": "R3M3qualifiedHeader",
+    },
 }
 
 BRACKET_NEW_NAMES = {
@@ -1983,6 +1997,7 @@ BRACKET_NEW_NAMES = {
     "StarbowBracket": "Bracket/16L4DSL2DS",
     "TeSLBracket": "Bracket/4L2DSU2L1D",
     "WCSKnockoutBracket": "Bracket/32L32D-8Q",
+    "4Qual-16Top8DEBracket": "Bracket/16-2Q-U-4L2D-2Q",
 }
 
 BRACKET_LEGACY_NAMES = {new: legacy for legacy, new in BRACKET_NEW_NAMES.items()}
