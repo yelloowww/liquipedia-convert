@@ -119,6 +119,7 @@ class Match:
     bestof: int | None = None
     bestof_is_set: bool = False
     header: str | None = None
+    date: str | None = None
     texts: list[str] = field(default_factory=list)
 
     def header_string(self):

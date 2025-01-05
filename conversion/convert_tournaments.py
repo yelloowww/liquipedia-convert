@@ -1,7 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
-from itertools import chain
+from itertools import chain, combinations
 import json
 from pathlib import Path
 from os import makedirs
@@ -77,6 +77,7 @@ PARTICIPANT_TABLE_PARTICIPANT_PATTERN = rc(r"^p?(\d+)$")
 BO_PATTERN = rc(r"\{\{ *Bo *\| *(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ABBR_BO_PATTERN = rc(r"\{\{ *Abbr/Bo(\d+) *\}\}", re.UNICODE | re.IGNORECASE)
 ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECASE)
+CROSS_TABLE_PLAYER_PATTERN = rc(r"^player(\d+)$", re.UNICODE)
 
 SHORT_RACES = ("p", "t", "z", "r")
 
@@ -143,7 +144,7 @@ class Converter:
         self.match_summaries: list[MatchSummaryEntry] = []
         self.team_matches: list[TeamMatchEntry] = []
         self.participant_tables_processed: int = 0
-        self.warning_last_bracket_id: str = ""
+        self.warning_last_id: str = ""
 
         # Get match summaries
         for tpl in self.parsed.templates:
@@ -333,7 +334,7 @@ class Converter:
             case "Match maps team":
                 if mmt_result := self.convert_match_maps_team(tpl):
                     empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
-                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
+                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mmt_result}")
             case "Match list comment":
                 self.info += f"⚠️ [Matchlist {self.match_list_id}] Match list comment may be lost\n"
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
@@ -364,6 +365,11 @@ class Converter:
                 if self.options["participant_table_convert_first_to_qualified_prize_pool_table"]:
                     prize_pool_table = self.prize_pool_table_from_sections([Section("", participants)])
                     self.changes.append((*tpl.span, prize_pool_table))
+
+            case "LegacyPlayerCrossTable":
+                if cross_table_result := self.convert_legacy_player_cross_table(tpl):
+                    self.changes.append((*tpl.span, cross_table_result))
+                    self.counter["LegacyPlayerCrossTable"] += 1
 
             case _:
                 if "TeamBracket" in name or name in ("IPTLBracket", "TeSLBracket"):
@@ -742,14 +748,20 @@ class Converter:
         ):
             return self.prize_pool_table_from_sections(sections) + refs_appendix
 
-        return self.participants_table_from_sections(sections, has_race_count, has_section_count) + refs_appendix
+        return self.participant_table_from_sections(sections, has_race_count, has_section_count) + refs_appendix
 
-    def participants_table_from_sections(
-        self, sections: list[Section], enable_count: bool = False, enable_section_count: bool = False
+    def participant_table_from_sections(
+        self,
+        sections: list[Section],
+        enable_count: bool = False,
+        enable_section_count: bool = False,
+        is_hidden: bool = False,
     ) -> str:
         has_a_non_empty_team = any(p.team for section in sections for p in section.participants)
 
         result = "{{ParticipantTable"
+        if is_hidden:
+            result += "|hidden=1"
         if enable_count:
             result += "|count=1"
         if enable_section_count:
@@ -1360,7 +1372,8 @@ class Converter:
         # Add vod from Match list start if there is one
         if self.match_list_vod:
             if (x := tpl.get_arg("vod")) and clean_arg_value(x):
-                match_list_vod_arg = f"vodgame{max(vodgames_moved_to_map) + 1}"
+                vodgame_index = max(vodgames_moved_to_map) + 1 if vodgames_moved_to_map else 1
+                match_list_vod_arg = f"vodgame{vodgame_index}"
             else:
                 match_list_vod_arg = "vod"
             start_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
@@ -1442,6 +1455,14 @@ class Converter:
             else:
                 *_, details_text = self.convert_team_match(btm_tpl, teams)
                 texts.append(details_text)
+        else:
+            for i in range(1, 3):
+                if teams[i - 1]:
+                    text = f"|opponent{i}={{{{TeamOpponent|{teams[i - 1]}"
+                    if scores[i - 1]:
+                        text += f"|score={scores[i - 1]}"
+                    text += "}}"
+                    texts.append(text)
 
         texts += end_texts
 
@@ -1460,21 +1481,21 @@ class Converter:
         id_ = clean_arg_value(tpl.get_arg("id"))
 
         if not bracket_name or not legacy_bracket_name:
-            self.warn_for_bracket(id_, " Empty argument 1 or 2")
+            self.warn("Bracket", id_, " Empty argument 1 or 2")
             return None
 
         if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
-            self.warn_for_bracket(id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}")
+            self.warn("Bracket", id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}")
 
         if self.options["bracket_identify_by_arg_1"]:
             if bracket_name in BRACKET_LEGACY_NAMES:
                 legacy_bracket_name = BRACKET_LEGACY_NAMES[bracket_name]
             else:
-                self.warn_for_bracket(id_, f" Bracket {bracket_name} unknown")
+                self.warn("Bracket", id_, f" Bracket {bracket_name} unknown")
                 return None
 
         if legacy_bracket_name not in BRACKETS:
-            self.warn_for_bracket(id_, f' Bracket "{legacy_bracket_name}" unknown')
+            self.warn("Bracket", id_, f' Bracket "{legacy_bracket_name}" unknown')
             return None
 
         conversion = BRACKETS[legacy_bracket_name]
@@ -1503,7 +1524,7 @@ class Converter:
             ) and m.group(1) not in LEGACY_PLAYER_AND_GAME_PREFIXES[legacy_bracket_name]:
                 unknown_args.append(arg_name)
         if unknown_args:
-            self.warn_for_bracket(id_, f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}")
+            self.warn("Bracket", id_, f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}")
 
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
@@ -1542,7 +1563,7 @@ class Converter:
                 bestof_moves.append(BestofMove(match_id))
 
             # Parse maps first (if available)
-            map_texts = []
+            map_texts: list[str] = []
             map_scores = [0, 0]
             has_a_non_empty_map = False
             is_walkover_set = False
@@ -1558,16 +1579,16 @@ class Converter:
                 summary_tpl = x.templates[0]
                 for other_tpl in x.templates[1:]:
                     if other_tpl.span[0] > summary_tpl.span[1]:
-                        self.warn_for_bracket(id_, f" Multiple templates in {game_prefix}details")
+                        self.warn("Bracket", id_, f" Multiple templates in {game_prefix}details")
                         break
                 if summary_tpl.normal_name(capitalize=True) != "BracketMatchSummary":
-                    self.warn_for_bracket(id_, f" Template in {game_prefix}details is not BracketMatchSummary")
+                    self.warn("Bracket", id_, f" Template in {game_prefix}details is not BracketMatchSummary")
                 summary_texts, summary_end_texts = self.arguments_to_texts(
                     BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
                 )
 
                 if any(ADVANTAGE_HINT_PATTERN.search(s) for t in (summary_texts, summary_end_texts) for s in t):
-                    self.warn_for_bracket(id_, f" Possible advantage in {game_prefix}")
+                    self.warn("Bracket", id_, f" Possible advantage in {game_prefix}")
 
                 vodgames_moved_to_map = []
                 empty_map_index = None
@@ -1587,7 +1608,7 @@ class Converter:
                         map_ = ""
                     map_winner = clean_arg_value(x_win)
                     if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
-                        self.warn_for_bracket(id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)")
+                        self.warn("Bracket", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)")
 
                     map_text = f"|map{i}={{{{Map"
                     map_map_text = f"|map={map_}"
@@ -1657,7 +1678,7 @@ class Converter:
                         bestof = int(bestof)
                     except ValueError:
                         # If the value is not an integer, then ignore it
-                        self.warn_for_bracket(id_, f"[{match_id}] Existing bestof is not a decimal integer value")
+                        self.warn("Bracket", id_, f"[{match_id}] Existing bestof is not a decimal integer value")
                     else:
                         match.bestof = bestof
                         match.bestof_is_set = True
@@ -1690,14 +1711,18 @@ class Converter:
                 if x := tpl.get_arg(f"{prefix}score2"):
                     scores2[i - 1] = clean_arg_value(x)
                     if match_index != len(conversion):
-                        self.warn_for_bracket(
-                            id_, f"[{match_id}] score2 for this match may not be supported correctly in this bracket"
+                        self.warn(
+                            "Bracket",
+                            id_,
+                            f"[{match_id}] score2 for this match may not be supported correctly in this bracket",
                         )
                 if x := tpl.get_arg(f"{prefix}score3"):
                     scores3[i - 1] = clean_arg_value(x)
                     if match_index != len(conversion):
-                        self.warn_for_bracket(
-                            id_, f"[{match_id}] score3 for this match may not be supported correctly in this bracket"
+                        self.warn(
+                            "Bracket",
+                            id_,
+                            f"[{match_id}] score3 for this match may not be supported correctly in this bracket",
                         )
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
@@ -1732,7 +1757,8 @@ class Converter:
                         except ValueError:
                             pass
                         if map_texts and num_scores[i - 1] and map_scores[i - 1] + advantage != num_scores[i - 1]:
-                            self.warn_for_bracket(
+                            self.warn(
+                                "Bracket",
                                 id_,
                                 f"[{match_id}] Discrepancy between"
                                 f" map score {map_scores[i - 1] + advantage}"
@@ -1751,12 +1777,15 @@ class Converter:
                     text += "}}"
                     text_reset += "}}"
                     if comments:
-                        self.warn_for_bracket(id_, f"[{match_id}] Comments moved to the end of the line")
+                        self.warn("Bracket", id_, f"[{match_id}] Comments moved to the end of the line")
                         text += f" {comments}"
 
                     player_texts.append(text)
                     if scores2[i - 1] and match_index == len(conversion):
                         reset_match_texts.append(text_reset)
+                else:
+                    # Empty opponent
+                    player_texts.append(f"|opponent{i}={{{{1Opponent|1=|score=}}}}")
             if not any(scores):
                 num_scores = map_scores
 
@@ -1778,8 +1807,8 @@ class Converter:
             ):
                 if num_scores[0] == num_scores[1]:
                     if match_id != "RxMTP":
-                        self.warn_for_bracket(
-                            id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}"
+                        self.warn(
+                            "Bracket", id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}"
                         )
                 else:
                     # We can compute bestof
@@ -1790,12 +1819,10 @@ class Converter:
                         if bestof_moves[-1].source is None:
                             bestof_moves[-1].source = match_id
                         if not is_new_round:
-                            self.warn_for_bracket(id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}")
+                            self.warn("Bracket", id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}")
             if match.bestof is not None:
                 if bestof != match.bestof:
-                    self.warn_for_bracket(
-                        id_, f"[{match_id}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})"
-                    )
+                    self.warn("Bracket", id_, f"[{match_id}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})")
             else:
                 # By default, bestof is the same as previously
                 match.bestof = bestof or prev_bestof
@@ -1803,30 +1830,30 @@ class Converter:
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[0]}win={wins[0]}")
+                        self.warn("Bracket", id_, f"[{match_id}] {player_prefixes[0]}win={wins[0]}")
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is not None:
                         if scores[0] < scores[1]:
-                            self.warn_for_bracket(id_, f"[{match_id}] bestof={bestof} => different winner")
+                            self.warn("Bracket", id_, f"[{match_id}] bestof={bestof} => different winner")
                     else:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.warn_for_bracket(id_, f"[{match_id}] {player_prefixes[1]}win={wins[1]}")
+                        self.warn("Bracket", id_, f"[{match_id}] {player_prefixes[1]}win={wins[1]}")
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is not None:
                         if scores[0] > scores[1]:
-                            self.warn_for_bracket(id_, f"[{match_id}] bestof={bestof} => different winner")
+                            self.warn("Bracket", id_, f"[{match_id}] bestof={bestof} => different winner")
                     else:
                         match_texts1.append("|winner=2")
                 else:
                     # Either no winner or two winners (!)
                     pass
 
-            match.texts = match_texts0 + player_texts + match_texts1
-            if match.texts:
+            if any(player.name for player in players) or match_texts0 or match_texts1:
+                match.texts = match_texts0 + player_texts + match_texts1
                 # Add headers between rounds
                 if round_number != prev_round_number:
                     # Try to use existing multi-line texts, eventually including comments
@@ -1853,7 +1880,7 @@ class Converter:
 
         # If all bestof are the same, keep only the first one
         if len(bestof_sets) > 1 and len(set(bestof_sets.values())) == 1:
-            self.warn_for_bracket(id_, " Keep only the first |bestof=")
+            self.warn("Bracket", id_, " Keep only the first |bestof=")
             for i, match_id in enumerate(bestof_sets):
                 if i > 0:
                     bracket_matches[match_id].bestof_is_set = False
@@ -1866,7 +1893,7 @@ class Converter:
                 and bracket_matches[move.source].bestof_is_set
             ):
                 bestof = bracket_matches[move.source].bestof
-                self.warn_for_bracket(id_, f" Move |bestof={bestof} from {move.source} to {move.destination}")
+                self.warn("Bracket", id_, f" Move |bestof={bestof} from {move.source} to {move.destination}")
                 bracket_matches[move.destination].bestof = bestof
                 bracket_matches[move.source].bestof_is_set = False
                 bracket_matches[move.destination].bestof_is_set = True
@@ -1876,7 +1903,7 @@ class Converter:
         ]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.warn_for_bracket(id_, " noDuplicateCheck used")
+            self.warn("Bracket", id_, " noDuplicateCheck used")
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -1899,7 +1926,7 @@ class Converter:
 
         id_ = clean_arg_value(tpl.get_arg("id"))
         if bracket_name != BRACKET_NEW_NAMES[legacy_name]:
-            self.warn_for_bracket(id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_name}")
+            self.warn("Bracket", id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_name}")
 
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
 
@@ -1966,8 +1993,8 @@ class Converter:
                     pass
                 else:
                     if num_scores[0] == num_scores[1]:
-                        self.warn_for_bracket(
-                            id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
+                        self.warn(
+                            "Bracket", id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
                         )
                     else:
                         # We can compute bestof
@@ -1975,8 +2002,8 @@ class Converter:
                         if match.bestof != prev_bestof:
                             match.bestof_is_set = True
                             if not is_new_round:
-                                self.warn_for_bracket(
-                                    id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}"
+                                self.warn(
+                                    "Bracket", id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}"
                                 )
             # By default, bestof is the same as previously
             match.bestof = bestof or prev_bestof
@@ -1984,14 +2011,14 @@ class Converter:
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.warn_for_bracket(id_, f"[{match_id}] {team_prefixes[0]}win={wins[0]}")
+                        self.warn("Bracket", id_, f"[{match_id}] {team_prefixes[0]}win={wins[0]}")
                     if teams[1] == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.warn_for_bracket(id_, f"[{match_id}] {team_prefixes[1]}win={wins[1]}")
+                        self.warn("Bracket", id_, f"[{match_id}] {team_prefixes[1]}win={wins[1]}")
                     if teams[0] == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
@@ -2108,7 +2135,7 @@ class Converter:
         bracket_texts += [f"|{match_id}={match.string()}" for match_id, match in bracket_matches.items()]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.warn_for_bracket(id_, " noDuplicateCheck used")
+            self.warn("Bracket", id_, " noDuplicateCheck used")
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -2118,10 +2145,10 @@ class Converter:
         result += "\n" + "\n".join(bracket_texts) + "\n}}"
         return result
 
-    def warn_for_bracket(self, id_: str, text: str) -> None:
-        if id_ != self.warning_last_bracket_id:
-            self.info += f"⚠️ [Bracket {id_}]"
-            self.warning_last_bracket_id = id_
+    def warn(self, type_: str, id_: str, text: str) -> None:
+        if id_ != self.warning_last_id:
+            self.info += f"⚠️ [{type_} {id_}]"
+            self.warning_last_id = id_
         else:
             self.info += f"⚠️     "
         self.info += f"{text}\n"
@@ -2244,6 +2271,235 @@ class Converter:
         new_text += "{{Box|end}}"
 
         return new_text
+
+    def convert_legacy_player_cross_table(self, tpl: wtp.Template) -> str | None:
+        id_ = clean_arg_value(tpl.get_arg("id"))
+
+        participants: dict[int, Participant] = {}
+        player_indexes = [m[1] for x in tpl.arguments if (m := CROSS_TABLE_PLAYER_PATTERN.match(x.name.strip()))]
+        sorted_player_indexes = sorted(int(n) for n in player_indexes)
+        for i in sorted_player_indexes:
+            x = tpl.get_arg(f"player{i}")
+            p = Participant(name=clean_arg_value(x))
+            if not p.name:
+                del p
+                continue
+            if x := tpl.get_arg(f"player{i}link"):
+                p.link = clean_arg_value(x)
+                if p.link in ("false", "true"):
+                    p.link = ""
+            if x := tpl.get_arg(f"player{i}flag"):
+                p.flag = clean_arg_value(x)
+            if x := tpl.get_arg(f"player{i}race"):
+                p.race = clean_arg_value(x)
+            self.participants[p.name] = p
+            participants[i] = p
+
+        cross_table_texts: list[str] = []
+        cross_table_matches: list[Match] = []
+        prev_bestof = None
+        for n1, n2 in combinations(sorted_player_indexes, 2):
+            match_texts0: list[str] = []
+            match_texts1: list[str] = []
+            player_texts: list[str] = []
+            scores = ["", ""]
+            num_scores = [None, None]
+            match = Match()
+            game_prefix = f"{n1}vs{n2}"
+
+            # Parse maps first (if available)
+            map_texts: list[str] = []
+            map_scores = [0, 0]
+            has_a_non_empty_map = False
+            is_walkover_set = False
+            are_all_maps_default_win = True
+            if (x := tpl.get_arg(f"{game_prefix}details")) and x.templates:
+                summary_tpl = x.templates[0]
+                for other_tpl in x.templates[1:]:
+                    if other_tpl.span[0] > summary_tpl.span[1]:
+                        self.warn("Cross table", id_, f" Multiple templates in {game_prefix}details")
+                        break
+                if summary_tpl.normal_name(capitalize=True) != "BracketMatchSummary":
+                    self.warn("Cross table", id_, f" Template in {game_prefix}details is not BracketMatchSummary")
+                summary_texts, summary_end_texts = self.arguments_to_texts(
+                    BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
+                )
+
+                vodgames_moved_to_map = []
+                empty_map_index = None
+                i = 1
+                while True:
+                    x = summary_tpl.get_arg(f"map{i}")
+                    x_win = summary_tpl.get_arg(f"map{i}win") or summary_tpl.get_arg(f"win{i}")
+                    if not (x or x_win):
+                        break
+
+                    map_ = clean_arg_value(x)
+                    if m := PIPE_PATTERN.match(map_):
+                        map_, map_display_name = m.groups()
+                    else:
+                        map_display_name = ""
+                    if map_ == "Unknown":
+                        map_ = ""
+                    are_all_maps_default_win &= map_ == "Default Win"
+                    map_winner = clean_arg_value(x_win)
+                    if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
+                        self.warn(
+                            "Cross table", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)"
+                        )
+
+                    map_text = f"|map{i}={{{{Map"
+                    map_map_text = f"|map={map_}"
+                    if map_display_name:
+                        map_map_text += f"|mapDisplayName={map_display_name}"
+                    map_winner_text = f"|winner={map_winner}"
+                    if x_win and (x is None or x_win.span[0] < x.span[0]):
+                        map_text += f"{map_winner_text}{map_map_text}"
+                    else:
+                        map_text += f"{map_map_text}{map_winner_text}"
+                    map_has_race = False
+                    for j in (1, 2):
+                        if x := summary_tpl.get_arg(f"map{i}p{j}race"):
+                            map_has_race = True
+                            map_text += f"|t{j}p1race={clean_arg_value(x)}"
+
+                    # Check if map has any data
+                    if map_ or map_winner or map_has_race:
+                        # Reset empty_map_index
+                        empty_map_index = None
+                        # Only include VOD to a Map template with data
+                        if self.options["bracket_move_vodgames_to_map"] and (
+                            vod := clean_arg_value(summary_tpl.get_arg(f"vodgame{i}"))
+                        ):
+                            map_text += f"|vod={vod}"
+                            vodgames_moved_to_map.append(i)
+                    elif empty_map_index is None:
+                        empty_map_index = i
+
+                    if map_ or map_has_race:
+                        has_a_non_empty_map = True
+
+                    map_text += "}}"
+                    map_texts.append(map_text)
+                    if map_winner in ("1", "2"):
+                        map_scores[int(map_winner) - 1] += 1
+                    i += 1
+                # Remove trailing Maps with no data
+                if empty_map_index is not None:
+                    map_texts = map_texts[: empty_map_index - 1]
+
+                is_walkover_set = clean_arg_value(tpl.get_arg("walkover")) in ("0", "1", "2")
+
+                i = 1
+                while True:
+                    x = summary_tpl.get_arg(f"veto{i}")
+                    x_player = summary_tpl.get_arg(f"vetoplayer{i}")
+                    if x or x_player:
+                        map_texts.append(f"|veto{i}={clean_arg_value(x)} |vetoplayer{i}={clean_arg_value(x_player)}")
+                        i += 1
+                    else:
+                        break
+
+                match_texts1 += summary_texts
+                if map_texts and (has_a_non_empty_map or sum(map_scores) == 0):
+                    match_texts1 += map_texts
+                match_texts1 += summary_end_texts
+                match_texts1 = [
+                    text
+                    for text in match_texts1
+                    if not any(text.startswith(f"|vodgame{i}=") for i in vodgames_moved_to_map)
+                ]
+
+                # If the bestof argument exists and it has an integer value, then use it
+                if bestof := clean_arg_value(summary_tpl.get_arg("bestof")):
+                    try:
+                        bestof = int(bestof)
+                    except ValueError:
+                        # If the value is not an integer, then ignore it
+                        self.warn("Cross table", f"[{game_prefix}] Existing bestof is not a decimal integer value")
+                    else:
+                        match.bestof = bestof
+                        match.bestof_is_set = True
+
+                if x := summary_tpl.get_arg("date"):
+                    match.date = clean_arg_value(x)
+
+            if x := tpl.get_arg(f"{game_prefix}result"):
+                scores[0] = clean_arg_value(x)
+            if x := tpl.get_arg(f"{game_prefix}resultvs"):
+                scores[1] = clean_arg_value(x)
+
+            if has_a_non_empty_map and are_all_maps_default_win:
+                winner = 1 if scores[1] == "0" else 2
+                scores = ["", ""]
+                is_walkover_set = True
+                match_texts1 += [f"|walkover={winner}"]
+
+            for i, n in enumerate((n1, n2), start=1):
+                participant = participants[n]
+                text = f"|opponent{i}={{{{1Opponent|{participant.name}"
+                if scores[i - 1]:
+                    text += f"|score={scores[i - 1]}"
+                    try:
+                        num_scores[i - 1] = int(scores[i - 1])
+                    except ValueError:
+                        pass
+                    if map_texts and num_scores[i - 1] and map_scores[i - 1] != num_scores[i - 1]:
+                        self.warn(
+                            "Cross table",
+                            id_,
+                            f"[{game_prefix}] Discrepancy between"
+                            f" map score {map_scores[i - 1]}"
+                            f" and score {scores[i - 1]} ({participant.name})",
+                        )
+                elif not map_texts and not is_walkover_set:
+                    text += f"|score="
+                text += "}}"
+                player_texts.append(text)
+
+            # Is it a walkover?
+            is_walkover = is_walkover_set or set(scores) == {"W", "L"}
+
+            # Guess bestof from scores
+            bestof = None
+            if self.options["bracket_guess_bestof"] and not is_walkover and None not in num_scores:
+                if num_scores[0] == num_scores[1]:
+                    self.warn(
+                        "Cross table", id_, f"[{game_prefix}] bestof cannot be guessed for score {'-'.join(scores)}"
+                    )
+                else:
+                    # We can compute bestof
+                    bestof = max(num_scores) * 2 - 1
+                    if bestof != prev_bestof:
+                        match.bestof_is_set = True
+            if match.bestof is not None:
+                if bestof != match.bestof:
+                    self.warn(
+                        "Bracket", id_, f"[{game_prefix}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})"
+                    )
+            else:
+                # By default, bestof is the same as previously
+                match.bestof = bestof or prev_bestof
+
+            match.texts = match_texts0 + player_texts + match_texts1
+            if match.texts:
+                # Append the match
+                cross_table_matches.append(match)
+
+            # Set prev_bestof for the next loop
+            prev_bestof = match.bestof
+
+        # Sort by date (alphabetically!) if every match has a date
+        if all(match.date for match in cross_table_matches):
+            cross_table_matches = sorted(cross_table_matches, key=lambda match: match.date)
+
+        cross_table_texts += [f"|M{i}={match.string()}" for i, match in enumerate(cross_table_matches, start=1)]
+
+        # result = self.participant_table_from_sections([Section("", list(participants.values()))], is_hidden=True)
+        result = f"{{{{CrossTableLeague|id={id_}}}}}"
+        result += f"\n{{{{Matchlist|id={id_}"
+        result += "\n" + "\n".join(cross_table_texts) + "\n}}"
+        return result
 
     def add_participant_from_player_template(self, tpl: wtp.Template) -> None:
         p = Participant()
