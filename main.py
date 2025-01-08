@@ -44,8 +44,8 @@ BOOL_OPTIONS = {
     "convert_very_old_player_matches_v2": False,
 }
 STRING_OPTIONS = {
-    "import_limit": "guess",
-    "import_limit_fixed_val": "",
+    "prize_pool_import": "false",
+    "prize_pool_import_fixed_limit_val": "",
     "participant_table_do_not_convert": "",
     "bracket_match_width": "",
     "bracket_details": "remove_if_stored",

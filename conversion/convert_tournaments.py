@@ -83,9 +83,10 @@ PRIZE_POOL_POINTS_ARG_PATTERN = rc(r"^(\d*)points$", re.UNICODE)
 PRIZE_POOL_SEED_PATTERN = rc(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]", re.UNICODE)
 PRIZE_POOL_NUMERIC_POINT_PATTERN = rc(r"^\d{1,3}(,\d{3})*(\.\d+)?$", re.UNICODE)
 PRIZE_POOL_PRIZE_PATTERN = rc(r"\|(?:local|usd)prize=[^\|]+", re.UNICODE)
-PRIZE_POOL_IMPORT_LIMIT_PATTERN = rc(r"(.+)(\|importLimit=[^\|]+)(\|.+)")
+PRIZE_POOL_IMPORT_PATTERN = rc(r"(.+)(\|import(?:Limit)?=[^\|]+)(\|.+)")
 
 SHORT_RACES = ("p", "t", "z", "r")
+POINTS_SEED = {"tsl3": ("2011 Pokerstrategy.com TSL3", "TSL 3")}
 
 
 class Converter:
@@ -832,11 +833,13 @@ class Converter:
             self.prize_pool_freetext.append("Hardware")
             texts.append(f"|freetext1=Hardware")
 
-        if self.options["import_limit"] == "fixed":
-            texts.append(f"|importLimit={self.options['import_limit_fixed_val']}")
+        if self.options["prize_pool_import"] == "false":
+            texts.append(f"|import=false")
+        elif self.options["prize_pool_import"] == "fixed_limit":
+            texts.append(f"|importLimit={self.options['prize_pool_import_fixed_limit_val']}")
         elif (x := tpl.get_arg("importLimit")) and (limit := clean_arg_value(x)):
             texts.append(f"|importLimit={limit}")
-        elif self.options["import_limit"] == "guess":
+        elif self.options["prize_pool_import"] == "guess_limit":
             texts.append(f"|importLimit=%@%£%$%")
 
         self.prize_pool_text = f"{{{{{self.prize_pool_type}PrizePool"
@@ -857,30 +860,10 @@ class Converter:
         if self.prize_pool_noprize:
             texts = [text for text in texts if not PRIZE_POOL_PRIZE_PATTERN.match(text)]
 
-        for i, (point_suffix, points_name) in self.prize_pool_points.items():
-            if (i == 1 and (val := args.get("points"))) or (val := args.get(f"{i}points")):
-                if points_name == "seed":
-                    if m := PRIZE_POOL_SEED_PATTERN.match(val):
-                        qual_tuple = [(s or "").strip() for s in m.groups()]
-                        if qual_tuple in self.prize_pool_qual_tuples:
-                            qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
-                        else:
-                            self.prize_pool_qual_tuples.append(qual_tuple)
-                            qual_index = len(self.prize_pool_qual_tuples)
-                        texts.append(f"|qualified{qual_index}=1")
-                    elif val.lower() == "paid trip":
-                        if "Seed" in self.prize_pool_freetext:
-                            freetext_index = self.prize_pool_freetext.index("Seed") + 1
-                        else:
-                            self.prize_pool_freetext.append("Seed")
-                            freetext_index = len(self.prize_pool_freetext)
-                        texts.append(f"|freetext{freetext_index}={val}")
-                elif i == self.prize_pool_hardware_point_index:
-                    texts.append(f"|freetext1={val}")
-                else:
-                    if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
-                        self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})\n"
-                    texts.append(f"|points{point_suffix}={val}")
+        for j, (point_suffix, points_name) in self.prize_pool_points.items():
+            if (j == 1 and (val := args.get("points"))) or (val := args.get(f"{j}points")):
+                if points_text := self.prize_pool_get_points_text(j, point_suffix, points_name, val):
+                    texts.append(points_text)
 
         slot_size = 100
         if place := args.get("place"):
@@ -942,10 +925,10 @@ class Converter:
                 if opp.localprize:
                     text += f"|localprize={opp.localprize}"
                 for j, (point_suffix, points_name) in self.prize_pool_points.items():
-                    if j in opp.points and points_name.lower() not in ("seed", "hardware"):
-                        if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(opp.points[j]) is None:
-                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({opp.points[j]})\n"
-                        text += f"|points{point_suffix}={opp.points[j]}"
+                    if j in opp.points and (
+                        points_text := self.prize_pool_get_points_text(j, point_suffix, points_name, val)
+                    ):
+                        text += points_text
                 if opp.date:
                     text += f"|date={opp.date}"
                 text += "}}"
@@ -959,6 +942,9 @@ class Converter:
                 texts.append("\n")
             elif detail_texts:
                 texts.append(detail_texts[0])
+            if len(detail_texts) != slot_opp_count:
+                word = 'More' if len(detail_texts) > slot_opp_count else 'Fewer'
+                self.info += f"⚠️ [{self.prize_pool_type} prize pool] {word} opponents than the slot capacity\n"
 
         if (
             (x := tpl.get_arg("place"))
@@ -969,13 +955,46 @@ class Converter:
 
         return "{{Slot" + "".join(texts) + "}}"
 
+    def prize_pool_get_points_text(self, i, point_suffix, points_name, val) -> str | None:
+        if points_name == "seed":
+            if m := PRIZE_POOL_SEED_PATTERN.match(val):
+                qual_tuple = tuple((s or "").strip() for s in m.groups())
+                if qual_tuple in self.prize_pool_qual_tuples:
+                    qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
+                else:
+                    self.prize_pool_qual_tuples.append(qual_tuple)
+                    qual_index = len(self.prize_pool_qual_tuples)
+                return f"|qualified{qual_index}=1"
+            if val.lower() == "paid trip":
+                if "Seed" in self.prize_pool_freetext:
+                    freetext_index = self.prize_pool_freetext.index("Seed") + 1
+                else:
+                    self.prize_pool_freetext.append("Seed")
+                    freetext_index = len(self.prize_pool_freetext)
+                return f"|freetext{freetext_index}={val}"
+            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Unknown value in 'seed' column ({val})\n"
+            return None
+        if i == self.prize_pool_hardware_point_index:
+            return f"|freetext1={val}"
+        if val.lower() == "seed" and points_name in POINTS_SEED:
+            qual_tuple = POINTS_SEED[points_name]
+            if qual_tuple in self.prize_pool_qual_tuples:
+                qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
+            else:
+                self.prize_pool_qual_tuples.append(qual_tuple)
+                qual_index = len(self.prize_pool_qual_tuples)
+            return f"|qualified{qual_index}=1"
+        if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
+            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})\n"
+        return f"|points{point_suffix}={val}"
+
     def convert_prize_pool_end(self, tpl: wtp.Template) -> None:
         prize_pool_end_pos = tpl.span[1]
 
         for i, name in enumerate(self.prize_pool_freetext, start=1):
             self.prize_pool_text += f"|freetext{i}={name}"
 
-        if self.options["import_limit"] == "guess":
+        if self.options["prize_pool_import"] == "guess_limit":
             self.prize_pool_text = self.prize_pool_text.replace("%@%£%$%", str(self.prize_pool_max_placement))
 
         for i, (link, name) in enumerate(self.prize_pool_qual_tuples, start=1):
@@ -983,8 +1002,8 @@ class Converter:
             if name:
                 self.prize_pool_text += f"|qualifies{i}name={name}"
 
-        # Move "|importLimit=..." to the end of the line
-        self.prize_pool_text = PRIZE_POOL_IMPORT_LIMIT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
+        # Move "|import=false" or "|importLimit=..." to the end of the line
+        self.prize_pool_text = PRIZE_POOL_IMPORT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
 
         self.prize_pool_text += "\n"
         self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
@@ -3185,13 +3204,13 @@ def prize_pool_opponent_string(opp, prefix, type_):
             if name := getattr(opp, f"{prefix}name{player_index}"):
                 text += f"|{name}"
             if flag := getattr(opp, f"{prefix}flag{player_index}"):
-                text += f"|flag{player_index}={flag}"
+                text += f"|p{player_index}flag={flag}"
             if race := getattr(opp, f"{prefix}race{player_index}"):
-                text += f"|race{player_index}={race}"
+                text += f"|p{player_index}race={race}"
             if link := getattr(opp, f"{prefix}link{player_index}"):
-                text += f"|link{player_index}={link}"
+                text += f"|p{player_index}link={link}"
             if team := getattr(opp, f"{prefix}team{player_index}"):
-                text += f"|team{player_index}={team}"
+                text += f"|p{player_index}team={team}"
     return text
 
 

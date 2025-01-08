@@ -57,17 +57,21 @@
             <label for="prize_pool_table_do_not_convert">Do not convert prize pool tables</label>
           </div>
           <div>
-            <input type="radio" name="import_limit" id="import_limit_none" value="none"{% if options['import_limit'] == 'none' or not options['import_limit'] %}checked{% endif %}/>
-            <label for="import_limit_none">Do not set an import limit</label>
+            <input type="radio" name="prize_pool_import" id="import_false" value="none"{% if options['prize_pool_import'] == 'false' or not options['prize_pool_import'] %}checked{% endif %}/>
+            <label for="import_false">Disable import</label>
           </div>
           <div>
-            <input type="radio" name="import_limit" id="import_limit_guess" value="guess"{% if options['import_limit'] == 'guess' %}checked{% endif %}/>
-            <label for="import_limit_guess">Guess import limit from the prize pool slots</label>
+            <input type="radio" name="prize_pool_import" id="import_no_limit" value="none"{% if options['prize_pool_import'] == 'no_limit' %}checked{% endif %}/>
+            <label for="import_no_limit">Enable import (default) without an import limit</label>
           </div>
           <div>
-            <input type="radio" name="import_limit" id="import_limit_fixed" value="fixed"{% if options['import_limit'] == 'fixed' %}checked{% endif %}/>
-            <label for="import_limit_fixed">Use fixed import limit:</label>
-            <input type="text" size="3" name="import_limit_fixed_val" value="{{options['import_limit_fixed_val']}}" />
+            <input type="radio" name="prize_pool_import" id="import_guess_limit" value="guess"{% if options['prize_pool_import'] == 'guess_limit' %}checked{% endif %}/>
+            <label for="import_guess_limit">Guess import limit from the prize pool slots</label>
+          </div>
+          <div>
+            <input type="radio" name="prize_pool_import" id="import_fixed_limit" value="fixed"{% if options['prize_pool_import'] == 'fixed_limit' %}checked{% endif %}/>
+            <label for="import_fixed_limit">Use fixed import limit:</label>
+            <input type="text" size="3" name="prize_pool_import_fixed_limit_val" value="{{options['prize_pool_import_fixed_limit_val']}}" />
           </div>
           <div>
             <input type="checkbox" name="prize_pool_opponent_details" id="prize_pool_opponent_details" {% if options['prize_pool_opponent_details'] %}checked{% endif %}/>

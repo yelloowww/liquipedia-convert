@@ -20,6 +20,7 @@ PRIZE_POOL_START_ARGUMENTS = _wrap_arguments(
         "tournament(\\d*)": "tournament\\1",
         "tournament name": "tournament name",
         "matchGroupId(\\d*)": "matchGroupId\\1",
+        "lpdb_prefix": "lpdb_prefix",
         "importLimit": None,
         "award": None,
         "\\d+": None,
