@@ -81,6 +81,9 @@ ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECAS
 CROSS_TABLE_PLAYER_PATTERN = rc(r"^player(\d+)$", re.UNICODE)
 PRIZE_POOL_POINTS_ARG_PATTERN = rc(r"^(\d*)points$", re.UNICODE)
 PRIZE_POOL_SEED_PATTERN = rc(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]", re.UNICODE)
+PRIZE_POOL_NUMERIC_POINT_PATTERN = rc(r"^\d{1,3}(,\d{3})*(\.\d+)?$", re.UNICODE)
+PRIZE_POOL_PRIZE_PATTERN = rc(r"\|(?:local|usd)prize=[^\|]+", re.UNICODE)
+PRIZE_POOL_IMPORT_LIMIT_PATTERN = rc(r"(.+)(\|importLimit=[^\|]+)(\|.+)")
 
 SHORT_RACES = ("p", "t", "z", "r")
 
@@ -842,6 +845,7 @@ class Converter:
         self.prize_texts: list[str] = []
         self.prize_pool_max_placement = 0
         self.prize_pool_qual_tuples: list[tuple[str, str]] = []
+        self.prize_pool_noprize = read_bool(clean_arg_value(tpl.get_arg("noprize")))
 
     def convert_prize_pool_slot(self, tpl: wtp.Template) -> str | None:
         texts: list[str] = []
@@ -849,6 +853,9 @@ class Converter:
         args = {x.name.strip(): clean_arg_value(x) for x in tpl.arguments}
 
         texts = self.arguments_to_texts(PRIZE_POOL_SLOT_ARGUMENTS, tpl)
+
+        if self.prize_pool_noprize:
+            texts = [text for text in texts if not PRIZE_POOL_PRIZE_PATTERN.match(text)]
 
         for i, (point_suffix, points_name) in self.prize_pool_points.items():
             if (i == 1 and (val := args.get("points"))) or (val := args.get(f"{i}points")):
@@ -905,10 +912,11 @@ class Converter:
                         opp.wofrom = clean_arg_value(x)
                     if (x := tpl.get_arg(f"wdl{i}")) or (i == 1 and (x := tpl.get_arg(f"wdl"))):
                         opp.wdl = clean_arg_value(x)
-                if x := tpl.get_arg(f"usdprize{i}"):
-                    opp.usdprize = clean_arg_value(x)
-                if x := tpl.get_arg(f"localprize{i}"):
-                    opp.localprize = clean_arg_value(x)
+                if not self.prize_pool_noprize:
+                    if x := tpl.get_arg(f"usdprize{i}"):
+                        opp.usdprize = clean_arg_value(x)
+                    if x := tpl.get_arg(f"localprize{i}"):
+                        opp.localprize = clean_arg_value(x)
                 for j in self.prize_pool_points.keys():
                     if (x := tpl.get_arg(f"{j}points{i}")) or (j == 1 and (x := tpl.get_arg(f"points{i}"))):
                         opp.points[j] = clean_arg_value(x)
@@ -976,7 +984,7 @@ class Converter:
                 self.prize_pool_text += f"|qualifies{i}name={name}"
 
         # Move "|importLimit=..." to the end of the line
-        self.prize_pool_text = IMPORT_LIMIT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
+        self.prize_pool_text = PRIZE_POOL_IMPORT_LIMIT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
 
         self.prize_pool_text += "\n"
         self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)

@@ -124,6 +124,19 @@ JOINS = {
             *(f"R8M{2 + x}" for x in range(1, 3)),
         ),
     ),
+    ("Bracket/32", "Bracket/32"): Join(
+        new_name="Bracket/64",
+        original_template_changes={},
+        other_template_imports={
+            1: {
+                **{f"R1M{x}": f"R1M{x + 16}" for x in range(1, 17)},
+                **{f"R2M{x}": f"R2M{x + 8}" for x in range(1, 9)},
+                **{f"R3M{x}": f"R3M{x + 4}" for x in range(1, 5)},
+                **{f"R4M{x}": f"R4M{x + 2}" for x in range(1, 3)},
+                "R5M1": "R5M2",
+            },
+        },
+    ),
 }
 
 
@@ -149,8 +162,9 @@ def bracket_join(original: str) -> str:
 def apply_join(join: Join, brackets: list[wtp.Template]) -> None:
     brackets[0].set_arg("1", join.new_name)
 
+    args_from = {arg_from: brackets[0].get_arg(arg_from) for arg_from in join.original_template_changes.keys()}
     for arg_from, arg_to in join.original_template_changes.items():
-        if x := brackets[0].get_arg(arg_from):
+        if x := args_from[arg_from]:
             if arg_to is None:
                 brackets[0].del_arg(arg_from)
             else:
