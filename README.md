@@ -14,3 +14,7 @@ Dependencies are listed in the file `pyproject.toml`.
 This starts a web server on localhost, on port 1234 by default (it can be changed with the argument `--port`, e.g. `--port 10000`).
 
 Open `http://localhost:<port>/` in a web browser to access it.
+
+### Conversion
+
+There is an HTML front end available at the /convert endpoint and an equivalent API version at /convert_api, which accepts POST requests with JSON data and returns a JSON response.
