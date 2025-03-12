@@ -187,7 +187,7 @@ TEAM_MATCH_ARGUMENTS = _wrap_arguments(
         "team[12](?:short|literal)?": 1,
         "teamwin": 1,
         "map\\d+(?:win)?": 1,
-        "(m\\d+|ace\\d?|2v2)p[12](?:flag|race|link)?": 1,
+        "(m\\d+|ace\\d?|2v2)p[12](?:flag|race|link|score)?": 1,
         "(m\\d+|ace\\d?)t[12]p\\d+(?:flag|race|link)?": 1,
         "(m\\d+|ace\\d?)(?:map|win|walkover)": 1,
         "2v2": 1,

@@ -81,7 +81,7 @@ ADVANTAGE_HINT_PATTERN = rc(r"\b(?:advantage|lead)\b", re.UNICODE | re.IGNORECAS
 CROSS_TABLE_PLAYER_PATTERN = rc(r"^player(\d+)$", re.UNICODE)
 PRIZE_POOL_POINTS_ARG_PATTERN = rc(r"^(\d*)points$", re.UNICODE)
 PRIZE_POOL_SEED_PATTERN = rc(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]", re.UNICODE)
-PRIZE_POOL_NUMERIC_POINT_PATTERN = rc(r"^\d{1,3}(,\d{3})*(\.\d+)?$", re.UNICODE)
+PRIZE_POOL_NUMERIC_POINT_PATTERN = rc(r"^(\d+|\d{1,3}(,\d{3})*)(\.\d+)?$", re.UNICODE)
 PRIZE_POOL_PRIZE_PATTERN = rc(r"\|(?:local|usd)prize=[^\|]+", re.UNICODE)
 PRIZE_POOL_IMPORT_PATTERN = rc(r"(.+)(\|import(?:Limit)?=[^\|]+)(\|.+)")
 
@@ -1245,6 +1245,7 @@ class Converter:
 
     def convert_team_match_helper(self, prefix: str, original_game_index: str, game_index: int) -> str:
         text = ""
+        scores = ["", ""]
         for j in range(1, 3):
             player_prefixes = [f"{prefix}p{j}"]
             if self.tm_args.get("2v2") == original_game_index:
@@ -1311,6 +1312,9 @@ class Converter:
                             text += f"|t{j}p{k}race={player.race}"
                 if is_archon:
                     text += f"|opponent{j}archon=true|opponent{j}race={players[0].race}"
+
+            scores = [self.tm_args.get(f"{prefix}p{k}score", "") for k in range(1, 3)]
+
             if self.options["team_match_make_duos_archons"] and len(player_prefixes) == 2:
                 text += f"|opponent{j}archon=true|opponent{j}race={players[0].race}"
 
@@ -1323,7 +1327,10 @@ class Converter:
             self.tm_has_set_map = True
         winner = self.tm_args.get(f"{prefix}win")
 
-        text = f"{{{{Map{text}|map={map}|winner={winner}"
+        if scores[0] and scores[1]:
+            text = f"{{{{Map|subgroup={game_index}|map=Submatch {game_index}{text}|score1={scores[0]}|score2={scores[1]}"
+        else:
+            text = f"{{{{Map{text}|map={map}|winner={winner}"
         if (
             vod := self.tm_args.get(f"vod{game_index}")
             or self.tm_args.get(f"vodgame{game_index}")
@@ -2064,14 +2071,8 @@ class Converter:
         else:
             return None
 
-        if x := tpl.get_arg("1"):
-            bracket_name = clean_arg_value(x)
-        else:
-            return None
-
-        id_ = clean_arg_value(tpl.get_arg("id"))
-        if bracket_name != BRACKET_NEW_NAMES[legacy_name]:
-            self.warn("Bracket", id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_name}")
+        id_ = generate_id()
+        bracket_name = BRACKET_NEW_NAMES[legacy_name]
 
         bracket_texts = self.arguments_to_texts(BRACKET_ARGUMENTS, tpl)
 
