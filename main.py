@@ -8,55 +8,7 @@ import bottle
 from bracket_join import bracket_join
 from convert_team_card import convert_team_card
 from conversion.convert_tournaments import convert_page, convert_wikitext
-
-
-# Dict values are default values
-BOOL_OPTIONS = {
-    "ignore_cache": False,
-    "prize_pool_table_do_not_convert": False,
-    "prize_pool_opponent_details": False,
-    "prize_pool_opponent_last_results": False,
-    "participant_table_do_not_convert_any": False,
-    "participant_table_convert_first_to_qualified_prize_pool_table": False,
-    "player_details": True,
-    "team_details": True,
-    "bracket_do_not_convert_details": False,
-    "bracket_identify_by_arg_1": False,
-    "bracket_guess_bestof": True,
-    "bracket_override_with_team_match": False,
-    "bracket_do_not_move_team_match": False,
-    "bracket_do_not_move_no_map_team_match": False,
-    "bracket_move_vodgames_to_map": True,
-    "match_maps_guess_bestof": True,
-    "match_maps_move_vodgames_to_map": True,
-    "team_match_add_player_lists": False,
-    "team_match_plus_for_archon": False,
-    "team_match_br_for_2v2": False,
-    "team_match_make_duos_archons": False,
-    "group_team_matches_uncollapsed": False,
-    "team_match_enable_dateheader": False,
-    "bracket_override_with_match_summary": False,
-    "bracket_do_not_move_match_summary": False,
-    "bracket_do_not_move_no_map_match_summary": False,
-    "external_cup_list_convert": False,
-    "convert_very_old_team_matches": False,
-    "convert_very_old_player_matches_v1": False,
-    "convert_very_old_player_matches_v2": False,
-}
-STRING_OPTIONS = {
-    "prize_pool_import": "false",
-    "prize_pool_import_fixed_limit_val": "",
-    "participant_table_do_not_convert": "",
-    "bracket_match_width": "",
-    "bracket_details": "remove_if_stored",
-    "match_maps_player_details": "remove_if_stored",
-    "group_matches_of_section": "",
-    "group_team_matches_of_section": "",
-    "group_team_matches_mode": "",
-    "group_team_matches_width": "",
-    "team_match_player_aliases": "",
-    "team_aliases": "",
-}
+from conversion.default_option_values import BOOL_OPTIONS, STRING_OPTIONS
 
 
 def enable_cors(fn):
@@ -159,6 +111,9 @@ def convert_api():
         **{key: bool(bottle.request.json.get(key)) for key in BOOL_OPTIONS},
         **{key: bottle.request.json.get(key) for key in STRING_OPTIONS},
     }
+
+    # for k, v in options.items():
+    #     print(k, v)
 
     input_type = bottle.request.json.get("input_type", "")
     wiki = bottle.request.json.get("wiki", "")
