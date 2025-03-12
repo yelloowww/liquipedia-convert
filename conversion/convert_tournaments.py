@@ -267,7 +267,7 @@ class Converter:
         if not self.options["prize_pool_table_do_not_convert"]:
             match name:
                 case "Prize pool start":
-                    if (x := tpl.get_arg("award")) and read_bool(clean_arg_value(x)):
+                    if (x := tpl.get_arg("award")) and self.read_bool(clean_arg_value(x)):
                         self.prize_pool_type = "Award"
                     else:
                         self.prize_pool_type = "Solo"
@@ -278,16 +278,26 @@ class Converter:
                 case "Prize pool start 2v2":
                     self.prize_pool_type = "Duo"
                     self.convert_prize_pool_start(tpl)
+                case "Prize pool start archon":
+                    self.prize_pool_type = "Archon"
+                    self.convert_prize_pool_start(tpl)
                 case "Prize pool start award":
                     self.prize_pool_type = "Award"
                     self.convert_prize_pool_start(tpl)
-                case "Prize pool slot" | "Prize pool slot team" | "Prize pool slot 2v2" | "Prize pool slot award":
+                case (
+                    "Prize pool slot"
+                    | "Prize pool slot team"
+                    | "Prize pool slot 2v2"
+                    | "Prize pool slot archon"
+                    | "Prize pool slot award"
+                ):
                     if pps_result := self.convert_prize_pool_slot(tpl):
                         self.prize_texts.append(pps_result)
                 case (
                     "LegacyPrizePoolEnd"
                     | "LegacyPrizePoolEnd team"
                     | "LegacyPrizePoolEnd 2v2"
+                    | "LegacyPrizePoolEnd archon"
                     | "LegacyPrizePoolEnd award"
                 ):
                     self.convert_prize_pool_end(tpl)
@@ -931,12 +941,16 @@ class Converter:
                         text += points_text
                 if opp.date:
                     text += f"|date={opp.date}"
-                text += "}}"
-                if text != "|{{Opponent}}":
-                    detail_texts.append(text)
+                if text:
+                    opp_text = "|{{ArchonOpponent" if self.prize_pool_type == "Archon" else "|{{Opponent"
+                    opp_text += text
+                    if self.prize_pool_type in ("Duo", "Archon"):
+                        opp_text += "\n  "
+                    opp_text += "}}"
+                    detail_texts.append(opp_text)
                 i += 1
 
-            if len(detail_texts) > 1:
+            if len(detail_texts) > 1 or self.prize_pool_type in ("Duo", "Archon"):
                 # Insert a new line if there are multiple players in the slot
                 texts += [f"\n  {text}" for text in detail_texts]
                 texts.append("\n")
@@ -3163,13 +3177,13 @@ def read_prize_pool_opponent_args(opp, args, i, prefix, type_):
         if name and (m := PIPE_PATTERN.match(name)):
             link, name = m.groups()
         setattr(opp, f"{prefix}name1", name)
-        setattr(opp, f"{prefix}link1", args.get(f"{prefix}link{i}", link))
-        setattr(opp, f"{prefix}flag1", args.get(f"{prefix}flag{i}", ""))
-        setattr(opp, f"{prefix}race1", args.get(f"{prefix}race{i}", ""))
-        setattr(opp, f"{prefix}team1", args.get(f"{prefix}team{i}", ""))
+        setattr(opp, f"{prefix}link1", args.get(f"{prefix}link{i}", args.get(f"{prefix}{i}link", link)))
+        setattr(opp, f"{prefix}flag1", args.get(f"{prefix}flag{i}", args.get(f"{prefix}{i}flag", "")))
+        setattr(opp, f"{prefix}race1", args.get(f"{prefix}race{i}", args.get(f"{prefix}{i}race", "")))
+        setattr(opp, f"{prefix}team1", args.get(f"{prefix}team{i}", args.get(f"{prefix}{i}team", "")))
         return
 
-    if type_ == "Duo":
+    if type_ in ("Duo", "Archon"):
         for player_index in range(1, 3):
             if prefix:
                 name = args.get(f"{prefix}{i}p{player_index}", "")
@@ -3182,8 +3196,11 @@ def read_prize_pool_opponent_args(opp, args, i, prefix, type_):
             setattr(opp, f"{prefix}name{player_index}", name)
             setattr(opp, f"{prefix}link{player_index}", args.get(f"{prefix}link{i}p{player_index}", link or ""))
             setattr(opp, f"{prefix}flag{player_index}", args.get(f"{prefix}flag{i}p{player_index}", ""))
-            setattr(opp, f"{prefix}race{player_index}", args.get(f"{prefix}race{i}p{player_index}", ""))
+            if type_ == "Duo":
+                setattr(opp, f"{prefix}race{player_index}", args.get(f"{prefix}race{i}p{player_index}", ""))
             setattr(opp, f"{prefix}team{player_index}", args.get(f"{prefix}team{i}p{player_index}", ""))
+        if type_ == "Archon":
+            setattr(opp, f"{prefix}race1", args.get(f"{prefix}race{i}", ""))
 
 
 def prize_pool_opponent_string(opp, prefix, type_):
@@ -3199,18 +3216,27 @@ def prize_pool_opponent_string(opp, prefix, type_):
             text += f"|link={link}"
         if team := getattr(opp, f"{prefix}team1"):
             text += f"|team={team}"
-    elif type_ == "Duo":
+    elif type_ in ("Duo", "Archon"):
         for player_index in range(1, 3):
+            player_text = ""
             if name := getattr(opp, f"{prefix}name{player_index}"):
-                text += f"|{name}"
+                player_text += f"|{name}"
             if flag := getattr(opp, f"{prefix}flag{player_index}"):
-                text += f"|p{player_index}flag={flag}"
-            if race := getattr(opp, f"{prefix}race{player_index}"):
-                text += f"|p{player_index}race={race}"
+                player_text += f"|p{player_index}flag={flag}"
+            if type_ == "Duo" and (race := getattr(opp, f"{prefix}race{player_index}")):
+                player_text += f"|p{player_index}race={race}"
             if link := getattr(opp, f"{prefix}link{player_index}"):
-                text += f"|p{player_index}link={link}"
+                player_text += f"|p{player_index}link={link}"
             if team := getattr(opp, f"{prefix}team{player_index}"):
-                text += f"|p{player_index}team={team}"
+                player_text += f"|p{player_index}team={team}"
+            if player_text:
+                if prefix == "":
+                    text += "\n    "
+                text += player_text
+        if type_ == "Archon" and (race := getattr(opp, f"{prefix}race1")):
+            text += f"|race={race}"
+        if prefix == "" and text:
+            text += "\n    "
     return text
 
 
