@@ -814,7 +814,16 @@ class Converter:
         return result
 
     def convert_prize_pool_start(self, tpl: wtp.Template) -> str | None:
-        texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
+        start_texts, end_texts = self.arguments_to_texts(PRIZE_POOL_START_ARGUMENTS, tpl)
+
+        self.prize_pool_localcurrency = clean_arg_value(tpl.get_arg("localcurrency"))
+        if self.prize_pool_localcurrency:
+            if self.prize_pool_localcurrency.lower() == "pcnt":
+                start_texts.append(f"|percentage=1")
+            if self.prize_pool_localcurrency.lower() == "points":
+                start_texts.append(f"|points=points")
+            elif self.prize_pool_localcurrency.lower() != "seed":
+                start_texts.append(f"|localcurrency={self.prize_pool_localcurrency}")
 
         self.prize_pool_points: dict[int, list[str, str]] = {}
         self.prize_pool_point_indexes_with_suffix: list[int] = []
@@ -838,12 +847,17 @@ class Converter:
             self.prize_pool_points[self.prize_pool_point_indexes_with_suffix[0]][0] = ""
         for point_suffix, point_name in self.prize_pool_points.values():
             if point_suffix is not None:
-                texts.append(f"|points{point_suffix}={point_name}")
+                start_texts.append(f"|points{point_suffix}={point_name}")
         if self.prize_pool_hardware_point_index is not None:
             self.prize_pool_freetext.append("Hardware")
-            texts.append(f"|freetext1=Hardware")
 
-        if self.options["prize_pool_import"] == "false":
+        texts = start_texts + end_texts
+
+        if (
+            self.options["prize_pool_import"] == "false"
+            and self.prize_pool_type != "Award"
+            and not self.read_bool(clean_arg_value(tpl.get_arg("lpdb")))
+        ):
             texts.append(f"|import=false")
         elif self.options["prize_pool_import"] == "fixed_limit":
             texts.append(f"|importLimit={self.options['prize_pool_import_fixed_limit_val']}")
@@ -858,24 +872,38 @@ class Converter:
         self.prize_texts: list[str] = []
         self.prize_pool_max_placement = 0
         self.prize_pool_qual_tuples: list[tuple[str, str]] = []
-        self.prize_pool_noprize = read_bool(clean_arg_value(tpl.get_arg("noprize")))
+        self.prize_pool_noprize = self.read_bool(clean_arg_value(tpl.get_arg("noprize")))
 
     def convert_prize_pool_slot(self, tpl: wtp.Template) -> str | None:
         texts: list[str] = []
         is_award = self.prize_pool_type == "Award"
         args = {x.name.strip(): clean_arg_value(x) for x in tpl.arguments}
 
-        texts = self.arguments_to_texts(PRIZE_POOL_SLOT_ARGUMENTS, tpl)
+        start_texts, end_texts = self.arguments_to_texts(PRIZE_POOL_SLOT_ARGUMENTS, tpl)
 
+        # Remove prize arguments if "noprize" is true
         if self.prize_pool_noprize:
-            texts = [text for text in texts if not PRIZE_POOL_PRIZE_PATTERN.match(text)]
+            start_texts = [text for text in start_texts if not PRIZE_POOL_PRIZE_PATTERN.match(text)]
+            end_texts = [text for text in end_texts if not PRIZE_POOL_PRIZE_PATTERN.match(text)]
 
+        # Convert localprize and point texts
+        if val := args.get("localprize"):
+            default_arg_name = "points" if self.prize_pool_localcurrency == "points" else "localprize"
+            lc_text = self.prize_pool_get_points_text(None, self.prize_pool_localcurrency, val, default_arg_name)
+            if lc_text is not None and lc_text.startswith("|localprize"):
+                start_texts.append(lc_text)
+        else:
+            lc_text = None
         for j, (point_suffix, points_name) in self.prize_pool_points.items():
             if (j == 1 and (val := args.get("points"))) or (val := args.get(f"{j}points")):
-                if points_text := self.prize_pool_get_points_text(j, point_suffix, points_name, val):
-                    texts.append(points_text)
+                if points_text := self.prize_pool_get_points_text(j, points_name, val, f"points{point_suffix}"):
+                    start_texts.append(points_text)
+        if lc_text is not None and not lc_text.startswith("|localprize"):
+            start_texts.append(lc_text)
 
-        slot_size = 100
+        texts = start_texts + end_texts
+
+        slot_size = 256
         if place := args.get("place"):
             place_split = place.split("-")
             if len(place_split) == 1:
@@ -889,7 +917,9 @@ class Converter:
         if is_award or self.options["prize_pool_opponent_details"] or self.options["prize_pool_opponent_last_results"]:
             detail_texts: list[str] = []
             i = 1
-            for i in range(1, slot_opp_count + 1):
+            do_continue = False
+            # range end is slot_opp_count + 1 to detect possible overflow: do not change to slot_opp_count
+            while i < slot_opp_count + 2 or do_continue:
                 opp = PrizePoolOpponent()
                 if is_award or self.options["prize_pool_opponent_details"]:
                     read_prize_pool_opponent_args(opp, args, i, "", self.prize_pool_type)
@@ -900,9 +930,9 @@ class Converter:
                     if (x := tpl.get_arg(f"lastvsscore{i}")) or (i == 1 and (x := tpl.get_arg(f"lastvsscore"))):
                         opp.lastvsscore = clean_arg_value(x)
                     if (x := tpl.get_arg(f"woto{i}")) or (i == 1 and (x := tpl.get_arg(f"woto"))):
-                        opp.woto = clean_arg_value(x)
+                        opp.woto = self.read_bool(clean_arg_value(x))
                     if (x := tpl.get_arg(f"wofrom{i}")) or (i == 1 and (x := tpl.get_arg(f"wofrom"))):
-                        opp.wofrom = clean_arg_value(x)
+                        opp.wofrom = self.read_bool(clean_arg_value(x))
                     if (x := tpl.get_arg(f"wdl{i}")) or (i == 1 and (x := tpl.get_arg(f"wdl"))):
                         opp.wdl = clean_arg_value(x)
                 if not self.prize_pool_noprize:
@@ -913,11 +943,10 @@ class Converter:
                 for j in self.prize_pool_points.keys():
                     if (x := tpl.get_arg(f"{j}points{i}")) or (j == 1 and (x := tpl.get_arg(f"points{i}"))):
                         opp.points[j] = clean_arg_value(x)
-                if (is_award or self.options["prize_pool_opponent_last_results"]) and (x := tpl.get_arg(f"date{i}")):
+                if (is_award or self.options["prize_pool_opponent_last_results"]) and (x := tpl.get_arg(f"date{i}") or tpl.get_arg(f"date{i}")):
                     opp.date = clean_arg_value(x)
 
-                text = "|{{Opponent"
-                text += prize_pool_opponent_string(opp, "", self.prize_pool_type)
+                text = prize_pool_opponent_string(opp, "", self.prize_pool_type)
                 if opp.wdl:
                     text += f"|wdl={opp.wdl}"
                 elif opp.lastvsname1 or opp.lastvsname2:
@@ -925,18 +954,32 @@ class Converter:
                     text += prize_pool_opponent_string(opp, "lastvs", self.prize_pool_type)
                     text += "}}"
                     if opp.woto:
+                        if opp.lastscore or opp.lastvsscore:
+                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] woto AND last score both defined\n"
                         text += f"|lastvsscore=L-W"
                     elif opp.wofrom:
+                        if opp.lastscore or opp.lastvsscore:
+                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] wofrom AND last score both defined\n"
                         text += f"|lastvsscore=W-L"
                     elif opp.lastscore and opp.lastvsscore:
                         text += f"|lastvsscore={opp.lastscore}-{opp.lastvsscore}"
+                    elif opp.lastscore or opp.lastvsscore:
+                        self.info += f"⚠️ [{self.prize_pool_type} prize pool] last score is partially defined\n"
+                elif opp.woto or opp.wofrom or opp.lastscore or opp.lastvsscore:
+                    self.info += f"⚠️ [{self.prize_pool_type} prize pool] last score is defined but not the opponent\n"
                 if opp.usdprize:
                     text += f"|usdprize={opp.usdprize}"
-                if opp.localprize:
-                    text += f"|localprize={opp.localprize}"
+                if opp.localprize and (
+                    lc_text := self.prize_pool_get_points_text(
+                        None, self.prize_pool_localcurrency, opp.localprize, "localprize"
+                    )
+                ):
+                    text += lc_text
                 for j, (point_suffix, points_name) in self.prize_pool_points.items():
                     if j in opp.points and (
-                        points_text := self.prize_pool_get_points_text(j, point_suffix, points_name, val)
+                        points_text := self.prize_pool_get_points_text(
+                            j, points_name, opp.points[j], f"points{point_suffix}"
+                        )
                     ):
                         text += points_text
                 if opp.date:
@@ -948,6 +991,8 @@ class Converter:
                         opp_text += "\n  "
                     opp_text += "}}"
                     detail_texts.append(opp_text)
+
+                do_continue = bool(text)
                 i += 1
 
             if len(detail_texts) > 1 or self.prize_pool_type in ("Duo", "Archon"):
@@ -956,8 +1001,8 @@ class Converter:
                 texts.append("\n")
             elif detail_texts:
                 texts.append(detail_texts[0])
-            if len(detail_texts) != slot_opp_count:
-                word = 'More' if len(detail_texts) > slot_opp_count else 'Fewer'
+            if slot_opp_count != 256 and len(detail_texts) != slot_opp_count:
+                word = "More" if len(detail_texts) > slot_opp_count else "Fewer"
                 self.info += f"⚠️ [{self.prize_pool_type} prize pool] {word} opponents than the slot capacity\n"
 
         if (
@@ -969,8 +1014,10 @@ class Converter:
 
         return "{{Slot" + "".join(texts) + "}}"
 
-    def prize_pool_get_points_text(self, i, point_suffix, points_name, val) -> str | None:
+    def prize_pool_get_points_text(self, i, points_name, val, default_arg_name) -> str | None:
         if points_name == "seed":
+            if val in ("0", "-"):
+                return None
             if m := PRIZE_POOL_SEED_PATTERN.match(val):
                 qual_tuple = tuple((s or "").strip() for s in m.groups())
                 if qual_tuple in self.prize_pool_qual_tuples:
@@ -979,17 +1026,22 @@ class Converter:
                     self.prize_pool_qual_tuples.append(qual_tuple)
                     qual_index = len(self.prize_pool_qual_tuples)
                 return f"|qualified{qual_index}=1"
-            if val.lower() == "paid trip":
-                if "Seed" in self.prize_pool_freetext:
-                    freetext_index = self.prize_pool_freetext.index("Seed") + 1
-                else:
-                    self.prize_pool_freetext.append("Seed")
-                    freetext_index = len(self.prize_pool_freetext)
-                return f"|freetext{freetext_index}={val}"
-            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Unknown value in 'seed' column ({val})\n"
-            return None
-        if i == self.prize_pool_hardware_point_index:
+            if "Seed" in self.prize_pool_freetext:
+                freetext_index = self.prize_pool_freetext.index("Seed") + 1
+            else:
+                self.prize_pool_freetext.append("Seed")
+                freetext_index = len(self.prize_pool_freetext)
+            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Raw value in 'seed' column ({val})\n"
+            return f"|freetext{freetext_index}={val}"
+        if i is not None and i == self.prize_pool_hardware_point_index:
             return f"|freetext1={val}"
+        if points_name == "win streak":
+            if "Win streak" in self.prize_pool_freetext:
+                freetext_index = self.prize_pool_freetext.index("Win streak") + 1
+            else:
+                self.prize_pool_freetext.append("Win streak")
+                freetext_index = len(self.prize_pool_freetext)
+            return f"|freetext{freetext_index}={val}"
         if val.lower() == "seed" and points_name in POINTS_SEED:
             qual_tuple = POINTS_SEED[points_name]
             if qual_tuple in self.prize_pool_qual_tuples:
@@ -998,13 +1050,13 @@ class Converter:
                 self.prize_pool_qual_tuples.append(qual_tuple)
                 qual_index = len(self.prize_pool_qual_tuples)
             return f"|qualified{qual_index}=1"
+        if points_name == "pcnt":
+            return f"|percentage={val.removesuffix('%').rstrip()}"
         if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
             self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})\n"
-        return f"|points{point_suffix}={val}"
+        return f"|{default_arg_name}={val}"
 
     def convert_prize_pool_end(self, tpl: wtp.Template) -> None:
-        prize_pool_end_pos = tpl.span[1]
-
         for i, name in enumerate(self.prize_pool_freetext, start=1):
             self.prize_pool_text += f"|freetext{i}={name}"
 
@@ -1022,6 +1074,8 @@ class Converter:
         self.prize_pool_text += "\n"
         self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
         self.prize_pool_text += "\n}}"
+
+        prize_pool_end_pos = tpl.span[1]
         self.changes.append((self.prize_pool_start_pos, prize_pool_end_pos, self.prize_pool_text))
         self.counter[f"{self.prize_pool_type} prize pool"] += 1
 
@@ -2666,6 +2720,12 @@ class Converter:
             i += 1
         return participants
 
+    def read_bool(self, val: str | bool | int) -> bool:
+        is_true = val in ("true", "t", "yes", "y", True, "1", 1)
+        if not is_true and val not in ("", "false", "f", "no", "n", False, "0", 0):
+            self.info += f"⚠️ read_bool on a non-boolean value ({val})\n"
+        return is_true
+
     def convert_very_old_team_matches(self):
         teams: list[str] = []
         subgroup = 0
@@ -3164,10 +3224,6 @@ def transform_string_to_list(input_str):
         else:
             result.append(int(part))
     return result
-
-
-def read_bool(val: str | bool | int) -> bool:
-    return val in ("true", "t", "yes", "y", True, "1", 1)
 
 
 def read_prize_pool_opponent_args(opp, args, i, prefix, type_):

@@ -11,15 +11,19 @@ def _wrap_arguments(args: dict[str, str | int | None]) -> tuple[str, dict[str, s
 
 PRIZE_POOL_START_ARGUMENTS = _wrap_arguments(
     {
-        "localcurrency": "localcurrency",
-        "points": None,
-        "(\\d+)points": None,
+        # Cutoff arguments
+        "localcurrency": 1,
+        "(\\d*)points": 1,
+        # Other arguments
         "cutafter": "cutafter",
         "tier": "tier",
+        "tiertype": "tiertype",
         "series": "series",
         "tournament(\\d*)": "tournament\\1",
         "tournament name": "tournament name",
         "matchGroupId(\\d*)": "matchGroupId\\1",
+        "storeLpdb": "storeLpdb",
+        "storeTournament": "storeTournament",
         "lpdb_prefix": "lpdb_prefix",
         "importLimit": None,
         "award": None,
@@ -28,16 +32,19 @@ PRIZE_POOL_START_ARGUMENTS = _wrap_arguments(
 )
 PRIZE_POOL_SLOT_ARGUMENTS = _wrap_arguments(
     {
+        # Cutoff arguments
+        "localprize": 1,
+        "(\\d*)points": 1,
+        # Other arguments
         "place": "place",
-        "usdprize": "usdprize",
-        "localprize": "localprize",
-        "award": "award",
         "count": "count",
+        "usdprize": "usdprize",
+        "award": "award",
         "date": "date",
-        "(\\d*)points": None,
         "(?:flag|race|link)?\\d+(?:p[12])?": None,
         "team\\d+(?:p[12])?": None,
         "lastvs(?:flag|race|link|score)?\\d+(?:p[12])?": None,
+        "lastvs\\d+(?:flag|race|link|score)?": None,
         "lastscore\\d+": None,
         "woto\\d+": None,
         "wofrom\\d+": None,
