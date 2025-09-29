@@ -1053,6 +1053,29 @@ BRACKETS = {
         **{f"R2M{4 + i}": (f"R2D{i * 2 - 1}", f"R2D{i * 2}", f"R2G{4 + i}") for i in range(1, 3)},
         **{f"R3M{2 + i}": (f"R3D{i}", f"R3W{4 + i}", f"R3G{2 + i}") for i in range(1, 3)},
     },
+    "User:Pres.sure/Template:8DoubleKotH": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        **{f"R2M{i}": (f"R2D{i}", f"R2W{i}", f"R2G{i}") for i in range(1, 3)},
+        **{f"R3M{i}": (f"R3D{i}", f"R3W{i}", f"R3G{i}") for i in range(1, 3)},
+        **{f"R4M{i}": (f"R4D{i}", f"R4W{i}", f"R4G{i}") for i in range(1, 3)},
+    },
+    "User:Pres.sure/Template:12DoubleKotH": {
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        **{f"R2M{i}": (f"R2D{i}", f"R2W{i}", f"R2G{i}") for i in range(1, 3)},
+        **{f"R3M{i}": (f"R3D{i}", f"R3W{i}", f"R3G{i}") for i in range(1, 3)},
+        **{f"R4M{i}": (f"R4D{i}", f"R4W{i}", f"R4G{i}") for i in range(1, 3)},
+        **{f"R5M{i}": (f"R5D{i}", f"R5W{i}", f"R5G{i}") for i in range(1, 3)},
+        **{f"R6M{i}": (f"R6D{i}", f"R6W{i}", f"R6G{i}") for i in range(1, 3)},
+    },
+    "User:Pres.sure/Template:FinalDoubleKotH": {
+        **{f"R2M{i}": (f"R2D{i * 2 - 1}", f"R2D{i * 2}", f"R2G{i}") for i in range(1, 3)},
+        "R4M1": ("R4W1", "R4W2", "R4G1"),
+        **{f"R1M{i}": (f"R1D{i * 2 - 1}", f"R1D{i * 2}", f"R1G{i}") for i in range(1, 3)},
+        **{f"R2M{2 + i}": (f"R2D{4 + i}", f"R2W{i}", f"R2G{2 + i}") for i in range(1, 3)},
+        "R3M1": ("R3W1", "R3W2", "R3G1"),
+        "R4M2": ("R4D1", "R4W3", "R4G2"),
+        "R5M1": ("R5W1", "R5W2", "R5G1"),
+    },
 }
 
 ROUND_HEADERS = {
@@ -1866,6 +1889,21 @@ ROUND_HEADERS = {
         "L2": "R3M3header",
         "L4": "R3M3qualifiedHeader",
     },
+    "User:Pres.sure/Template:8DoubleKotH": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 5)},
+    },
+    "User:Pres.sure/Template:12DoubleKotH": {
+        **{f"R{i}": f"R{i}M1header" for i in range(1, 7)},
+    },
+    "User:Pres.sure/Template:FinalDoubleKotH": {
+        "R2": ("R2M1header", "R2M5header"),
+        "R4": ("R4M1header", "R4M3header"),
+        "L1": ("R1M1header", "R1M3header"),
+        "L2": ("R2M3header", "R2M7header"),
+        "L3": ("R3M1header", "R3M2header"),
+        "L4": ("R4M2header", "R4M4header"),
+        "R5": "R5M1header",
+    },
 }
 
 BRACKET_NEW_NAMES = {
@@ -1998,6 +2036,9 @@ BRACKET_NEW_NAMES = {
     "TeSLBracket": "Bracket/4L2DSU2L1D",
     "WCSKnockoutBracket": "Bracket/32L32D-8Q",
     "4Qual-16Top8DEBracket": "Bracket/16-2Q-U-4L2D-2Q",
+    "User:Pres.sure/Template:8DoubleKotH": "Bracket/2L3D-2L3D",
+    "User:Pres.sure/Template:128DoubleKotH": "Bracket/2L5D-2L5D",
+    "User:Pres.sure/Template:FinalDoubleKotH": "Bracket/4H4L2DSL1DL",
 }
 
 BRACKET_LEGACY_NAMES = {new: legacy for legacy, new in BRACKET_NEW_NAMES.items()}
@@ -2072,4 +2113,6 @@ SINGLE_BLOCK_BRACKETS = {
     "Bracket/32L16DSL8DS-4Q",
     "Bracket/16L4DSL2DS",
     "Bracket/32L32D-8Q",
+    "User:Pres.sure/Template:8DoubleKotH",
+    "User:Pres.sure/Template:12DoubleKotH",
 }
