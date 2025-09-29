@@ -6,6 +6,7 @@ import argparse
 import bottle
 
 from bracket_join import bracket_join
+from convert_navbox import NavboxConverter
 from convert_team_card import convert_team_card
 from conversion.convert_tournaments import convert_page, convert_wikitext
 from conversion.default_option_values import BOOL_OPTIONS, STRING_OPTIONS
@@ -185,6 +186,83 @@ def page_team_card_conversion():
     converted = convert_team_card(original)
 
     return {"original": original, "converted": converted}
+
+
+@bottle.route("/navbox_conversion")
+@bottle.route("/navbox_conversion", method="POST")
+@bottle.jinja2_view("templates/navbox_conversion")
+def page_navbox_conversion():
+    original = bottle.request.forms.original or ""
+    page_title = bottle.request.forms.title or ""
+
+    converted, info, _ = convert_navbox(original, page_title, {}) if original else ("", "", "")
+
+    return {"original": original, "page_title": page_title, "converted": converted, "info": info}
+
+
+@bottle.route("/navbox_conversion_api", method=["OPTIONS", "POST"])
+@enable_cors
+def convert_api():
+    options = {
+        **{key: bool(bottle.request.json.get(key, value)) for key, value in BOOL_OPTIONS.items()},
+        **{key: bottle.request.json.get(key, value) for key, value in STRING_OPTIONS.items()},
+    }
+
+    # for k, v in options.items():
+    #     print(k, v)
+
+    input_type = bottle.request.json.get("input_type", "")
+    wiki = bottle.request.json.get("wiki", "")
+    title = bottle.request.json.get("title", "")
+    wikitext_title = bottle.request.json.get("wikitext_title", "")
+    wikitext = bottle.request.json.get("wikitext", "")
+    if (
+        (input_type == "wiki_and_title" and (not wiki or not title))
+        or (input_type == "wiki_and_text" and not wikitext)
+        or input_type not in ("wiki_and_title", "wikitext")
+    ):
+        info = ""
+        if input_type == "wiki_and_title":
+            if not wiki:
+                info = "Error: No wiki"
+            if not title:
+                info = "Error: No title"
+        elif input_type == "wikitext":
+            if not wikitext:
+                info = "Error: No wikitext"
+        else:
+            info = 'Error: input_type should be "wiki_and_title" or "wikitext"'
+        return {
+            "input_type": input_type,
+            "wiki": wiki,
+            "title": title,
+            "wikitext": wikitext,
+            "wikitext_title": wikitext_title,
+            "converted": "",
+            "info": info,
+            "options": options,
+        }
+
+    if input_type == "wiki_and_title":
+        converted, info, summary, wikitext = convert_page(wiki, title, convert_navbox, options)
+    elif input_type == "wikitext":
+        converted, info, summary = convert_wikitext(wikitext, wikitext_title, convert_navbox, options)
+
+    return {
+        "input_type": input_type,
+        "wiki": wiki,
+        "title": title,
+        "wikitext": wikitext,
+        "wikitext_title": wikitext_title,
+        "converted": converted,
+        "info": info,
+        "summary": summary,
+        "options": options,
+    }
+
+
+def convert_navbox(text, title, options) -> tuple[str, str, str]:
+    return NavboxConverter(text, title, options).convert()
 
 
 if __name__ == "__main__":
