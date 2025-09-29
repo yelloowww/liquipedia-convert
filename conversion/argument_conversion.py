@@ -75,7 +75,7 @@ MATCH_SUMMARY_ARGUMENTS = _wrap_arguments(
         "vodgame(\\d+)": "vodgame\\1",
     }
 )
-MATCH_LIST_ARGUMENTS = _wrap_arguments(
+MATCH_LIST_START_ARGUMENTS = _wrap_arguments(
     {
         "id": "id",
         "1": "title",
@@ -85,10 +85,22 @@ MATCH_LIST_ARGUMENTS = _wrap_arguments(
         "vod": None,
     }
 )
+MATCH_LIST_ARGUMENTS = _wrap_arguments(
+    {
+        "id": "id",
+        "1": "title",
+        "title": "title",
+        "hide": "collapsed",
+        "width": "width",
+        "vod": None,
+        "match\\d+": None,
+    }
+)
 MATCH_MAPS_ARGUMENTS = _wrap_arguments(
     {
         # Cutoff arguments
         "player[12](?:flag|race)?": 1,
+        "playerlink[12]": 1,
         "p[12]score": 1,
         "map\\d+(?:win)?": 2,
         "map\\d+p[12]race": 2,
@@ -109,7 +121,7 @@ MATCH_MAPS_ARGUMENTS = _wrap_arguments(
         "recap": "recap",
         "review": "review",
         "comment": "comment",
-        "bestof": "bestof",
+        "bestof": None,
         "vod": "vod",
         "vodgame(\\d+)": "vodgame\\1",
     }
@@ -134,7 +146,7 @@ MATCH_MAPS_TEAM_ARGUMENTS = _wrap_arguments(
         "recap": "recap",
         "review": "review",
         "comment": "comment",
-        "bestof": "bestof",
+        "bestof": None,
         "vod": "vod",
     }
 )
@@ -223,5 +235,33 @@ TEAM_MATCH_ARGUMENTS = _wrap_arguments(
         },
         "width": None,
         "vod": "vod",
+    }
+)
+GROUP_TABLE_ARGUMENTS = _wrap_arguments(
+    {
+        "id": "id",
+        "1": "title",
+        "title": "title",
+        "date": "date",
+        "edate": "edate",
+        "hide": "hide",
+        "finished": "finished",
+        "width": "width",
+        "lrthread": "lrthread",
+        "preview": "preview",
+        "interview(2?)": "interview\\1",
+        "recap": "recap",
+        "review": "review",
+        "location": "location",
+        "stream": "stream",
+        "vod": "vod",
+        "vod(\\d+)": "vod\\1",
+        "twitch": "twitch",
+        "afreeca": "afreeca",
+        "afreecatv": "afreecatv",
+        "dailymotion": "dailymotion",
+        "douyu": "douyu",
+        "trovo": "trovo",
+        "youtube": "youtube",
     }
 )

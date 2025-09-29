@@ -1,14 +1,8 @@
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime
-from itertools import chain, combinations
-import json
-from pathlib import Path
-from os import makedirs
-import os.path
+from itertools import chain, combinations, groupby
 import random
 import re
-import requests
 import string
 from typing import Any
 
@@ -22,17 +16,8 @@ from conversion.my_wikitextparser import get_italics, get_sections, Italic, Sect
 from conversion.races import RACES
 
 
-API_URLS = {
-    "starcraft": "https://liquipedia.net/starcraft/api.php",
-    "starcraft2": "https://liquipedia.net/starcraft2/api.php",
-}
-HEADERS = {
-    "Accept-Encoding": "gzip",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 EnuajBot (enuaj on Liquipedia)",
-}
-
 rc = re.compile
-WIKITEXT_COMMENT_PATTERN = rc(r"<!--((?!-->).)*-->", re.UNICODE)
+WIKITEXT_COMMENT_PATTERN = rc(r"<!--((?!-->).)*-->", re.UNICODE | re.DOTALL)
 NOTE_PATTERN = rc(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
 ASTERISK_PATTERN = rc(r"(\*+)(?:<\/nowiki>)?$", re.UNICODE)
 REF_PATTERN = rc(r'(<ref(?:\s+name=("[^"]+"|[^ ]+))?(?: *\/>|>.+?<\/ref>))', re.UNICODE)
@@ -46,7 +31,7 @@ TO_GAMESET_PATTERN = rc(
     re.UNICODE,
 )
 HIDDEN_ANCHOR_PATTERN = rc(r" *\{\{ *(?:HA|HiddenAnchor)", re.UNICODE)
-FLAG_TEAM_PATTERN = rc(r"(?:^\{\{[Ff]lag\/.+?\}\}(?:\s|&nbsp;)*\b|\b(?:\s|&nbsp;)*\{\{[Ff]lag\/.+?\}\}$)", re.UNICODE)
+FLAG_TEAM_PATTERN = rc(r"(?:^\{\{[Ff]lag\|.+?\}\}(?:\s|&nbsp;)*\b|\b(?:\s|&nbsp;)*\{\{[Ff]lag\|.+?\}\}$)", re.UNICODE)
 BR_2V2_PATTERN1 = rc(
     r"(?:\[\[(.+?)\]\]|(.+?)) *\{\{SC2-([PTZR])\}\} *(?:\{\{[Ff]lag\/(.*?)\}\} *)?<br *\/> *(?:\[\[(.+?)\]\]|(.+?)) *\{\{SC2-([PTZR])\}\} *(?:\{\{[Ff]lag\/(.*?)\}\})?",
     re.UNICODE,
@@ -84,17 +69,26 @@ PRIZE_POOL_SEED_PATTERN = rc(r"\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]", re.UNICODE)
 PRIZE_POOL_NUMERIC_POINT_PATTERN = rc(r"^(\d+|\d{1,3}(,\d{3})*)(\.\d+)?$", re.UNICODE)
 PRIZE_POOL_PRIZE_PATTERN = rc(r"\|(?:local|usd)prize=[^\|]+", re.UNICODE)
 PRIZE_POOL_IMPORT_PATTERN = rc(r"(.+)(\|import(?:Limit)?=[^\|]+)(\|.+)")
-
+WIDTH_IN_PX_TEXT_PATTERN = rc(r"^(\|width=\d+)px$")
+MATCH_ARG_PATTERN = rc(r"^match(\d+)$")
+INCLUDEONLY_SUB = rc(r"<includeonly>(?:(?!\}\}|<\/includeonly>).)+?<\/includeonly>").sub
+PRIZE_POOL_SLOT_OPPONENT_SUB = rc(r"(\{\{(?:Archon)?Opponent)(?=\|)").sub
+GROUP_TABLE_TITLE_WIDTH_SUB = rc(r"(\|title=[^\|]+)\n(\|width=\d+)").sub
+GROUP_TABLE_SINGLE_PBG_SUB = rc(r"(\|pbg\d+=[^\|]+)\n(\|)").sub
+TEAM_TEMPLATE_SUB = rc(r"\{\{Team(?:2|Short|Icon|Part)?\|[^\}]*\}\}").sub
+SIMPLE_TEMPLATE_SUB = rc("\{\{[^\}]+\}\}").sub
 SHORT_RACES = ("p", "t", "z", "r")
 POINTS_SEED = {"tsl3": ("2011 Pokerstrategy.com TSL3", "TSL 3")}
+BG_ALIASES = {"proceed": "up", "drop": "down"}
 
 
-class Converter:
-    def __init__(self, text: str, title: str, options: dict[str, Any]) -> str:
+class TournamentConverter:
+    def __init__(self, text: str, title: str, options: dict[str, Any]) -> None:
         self.text = text
         self.title = title
         self.options = options
-        self.participants: dict[str, Participant] = {}
+        self.participants_by_name: dict[str, Participant] = {}
+        self.participants_by_link: dict[str, Participant] = {}
         self.participant_tables_not_to_convert: list[int] = []
         if self.options["participant_table_do_not_convert"]:
             self.participant_tables_not_to_convert = transform_string_to_list(
@@ -179,7 +173,8 @@ class Converter:
             self.group_team_matches()
 
         # Parse templates (Pass 1)
-        self.single_match_ids = []
+        self.single_match_ids: list[str] = []
+        self.group_tbl_ids: list[list[str]] = []
         for tpl in self.parsed.templates:
             name = tpl.normal_name(capitalize=True)
 
@@ -190,23 +185,36 @@ class Converter:
                 case "Bracket" | "LegacyBracket" | "LegacyBracketDisplay":
                     if (x1 := tpl.get_arg("1")) and clean_arg_value(x1) == "Bracket/2" and (x := tpl.get_arg("id")):
                         self.single_match_ids.append(clean_arg_value(x))
+                case "Legacy Match list start" | "LegacyMatchList" | "Matchlist":
+                    if self.group_tbl_ids and (x := tpl.get_arg("id")):
+                        self.group_tbl_ids[-1].append(clean_arg_value(x))
+                case "GroupTableStart":
+                    self.group_tbl_ids.append([])
+                case _:
+                    name = INCLUDEONLY_SUB("", name)
+                    if name == "GroupTableStart":
+                        self.group_tbl_ids.append([])
 
         # For the second pass, we mix tables and templates
         parsed_tables_and_templates = sorted(self.parsed.tables + self.parsed.templates, key=lambda obj: obj.span)
 
         # Parse tables and templates (Pass 2)
+        self.templates_to_skip = set()
         self.prize_pool_type: str | None = None
         self.prize_pool_text = ""
         self.prize_pool_start_pos = -1
-        self.prize_texts = []
+        self.prize_slots: list[tuple[list[str], list[str]]] = []
         self.match_list_id = None
         self.match_list_text = ""
         self.match_list_start_pos = -1
-        self.match_texts = []
+        self.match_list_matches: list[Match] = []
         self.participant_table_span = (-1, -1)
-        self.to_skip = set()
+        self.group_tbl_index = 0
+        self.group_tbl_is_manual = False
+        self.group_tbl_text = ""
+        self.group_tbl_start_pos = -1
         for tbl_or_tpl in parsed_tables_and_templates:
-            if tbl_or_tpl.span in self.to_skip:
+            if tbl_or_tpl.span in self.templates_to_skip:
                 continue
             if isinstance(tbl_or_tpl, wtp.Table) and not self.options["participant_table_do_not_convert_any"]:
                 self.pass2_for_table(tbl_or_tpl)
@@ -243,8 +251,9 @@ class Converter:
             converted = f"{converted[:start]}{new_text}{converted[end:]}"
 
         if self.not_converted_arguments:
-            self.info += f"⚠️ Arguments not converted: {len(self.not_converted_arguments)} "
+            self.info += f'<div class="warning">⚠️ Arguments not converted: {len(self.not_converted_arguments)} '
             self.info += str(sorted(self.not_converted_arguments))
+            self.info += "</div>"
 
         # Create a summary
         if self.counter:
@@ -292,7 +301,7 @@ class Converter:
                     | "Prize pool slot award"
                 ):
                     if pps_result := self.convert_prize_pool_slot(tpl):
-                        self.prize_texts.append(pps_result)
+                        self.prize_slots.append(pps_result)
                 case (
                     "LegacyPrizePoolEnd"
                     | "LegacyPrizePoolEnd team"
@@ -304,39 +313,63 @@ class Converter:
 
         match name:
             case "Legacy Match list start" | "LegacyMatchList":
-                texts = self.arguments_to_texts(MATCH_LIST_ARGUMENTS, tpl)
+                if name == "Legacy Match list start":
+                    texts = self.arguments_to_texts(MATCH_LIST_START_ARGUMENTS, tpl)
+                elif name == "LegacyMatchList":
+                    texts = self.arguments_to_texts(MATCH_LIST_ARGUMENTS, tpl)
                 self.match_list_text = "{{Matchlist" + "".join(texts) + "\n"
                 self.match_list_start_pos = tpl.span[0]
-                self.match_texts = []
+                self.match_list_matches = []
                 self.match_list_id = clean_arg_value(tpl.get_arg("id"))
                 self.match_list_comments = []
                 self.match_maps_prev_bestof = None
                 if (x := tpl.get_arg("vod")) and (vod := clean_arg_value(x)):
                     self.match_list_vod = vod
                     self.info += (
-                        f"⚠️ vod in Match list start {self.match_list_id} moved to the first match of the list\n"
+                        f'<div class="warning">⚠️ vod in Match list start {self.match_list_id}'
+                        " moved to the first match of the list</div>"
                     )
                 else:
                     self.match_list_vod = None
                 if name == "LegacyMatchList":
-                    for sub_tpl in tpl.templates:
-                        self.pass2_for_template(sub_tpl)
-                        self.to_skip.add(sub_tpl.span)
+                    match_args = list(filter_template_args(tpl, MATCH_ARG_PATTERN))
+                    # First, verify the order and warn if needed
+                    last_index = 0
+                    for x, m in match_args:
+                        index = int(m[1])
+                        if int(m[1]) != last_index + 1:
+                            self.info += (
+                                f'<div class="warning">⚠️ Unexpected index ({index} after {last_index})'
+                                f" in matchlist {self.match_list_id}</div>"
+                            )
+                        last_index = index
+                    # Process the matchX arguments
+                    for x, m in sorted(match_args, key=lambda t: int(t[1][1])):
+                        if not x.templates:
+                            self.info += f'<div class="warning">⚠️ Empty {m[0]} in matchlist {self.match_list_id}</div>'
+                        else:
+                            sub_tpl = x.templates[0]
+                            self.pass2_for_template(sub_tpl)
+                            self.templates_to_skip.add(sub_tpl.span)
                     self.close_match_list(tpl)
             case "Match maps" | "MatchMaps/Legacy":
+                if self.match_list_id is None:
+                    self.info += '<div class="warning">⚠️ Match maps found out of a matchlist</div>'
                 if mm_result := self.convert_match_maps(tpl):
-                    empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
-                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mm_result}")
+                    mm_result.header = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
+                    self.match_list_matches.append(mm_result)
             case "Match maps team":
                 if mmt_result := self.convert_match_maps_team(tpl):
-                    empty_line_before = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
-                    self.match_texts.append(f"{empty_line_before}|M{len(self.match_texts) + 1}={mmt_result}")
+                    mmt_result.header = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
+                    self.match_list_matches.append(mmt_result)
             case "Match list comment":
-                self.info += f"⚠️ [Matchlist {self.match_list_id}] Match list comment may be lost\n"
+                self.info += (
+                    f'<div class="warning">⚠️ [Matchlist {self.match_list_id}] Match list comment may be lost</div>'
+                )
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
             case "Match list end":
                 if self.match_list_id is None:
-                    self.info += f"⚠️ Match list end without a start\n"
+                    self.info += f'<div class="warning">⚠️ Match list end without a start</div>'
                 else:
                     self.close_match_list(tpl)
 
@@ -367,23 +400,53 @@ class Converter:
                     self.changes.append((*tpl.span, cross_table_result))
                     self.counter["LegacyPlayerCrossTable"] += 1
 
+            case "GroupTableStart":
+                self.process_group_table_start(tpl)
+
+            case "GroupTableSlot":
+                self.process_group_table_slot(tpl)
+                for sub_tpl in tpl.templates:
+                    self.templates_to_skip.add(sub_tpl.span)
+
+            case "GroupTableEnd":
+                self.process_group_table_end(tpl)
+
             case _:
                 if "TeamBracket" in name or name in ("IPTLBracket", "TeSLBracket"):
                     name = name.replace("TeamBracket", "Bracket")
                     if team_bracket_result := self.convert_team_bracket(tpl, name):
                         self.changes.append((*tpl.span, team_bracket_result))
 
-                # if name == "GroupTableLeague":
-                #     self.add_participants_from_group_table_league(tpl)
+                name = INCLUDEONLY_SUB("", name)
 
-    def close_match_list(self, tpl):
+                if name == "GroupTableStart":
+                    self.process_group_table_start(tpl)
+                elif name == "GroupTableSlot":
+                    self.process_group_table_slot(tpl)
+
+    def close_match_list(self, tpl: wtp.Template):
         match_list_end_pos = tpl.span[1]
-        self.match_list_text += "\n".join(self.match_texts)
+        # Try to move the first set bestof
+        if len(self.match_list_matches) > 1 and not self.match_list_matches[0].bestof_is_set:
+            for i, match in enumerate(self.match_list_matches[1:], start=2):
+                if match.bestof_is_set:
+                    self.info += (
+                        f'<div class="warning">⚠️ [Matchlist {self.match_list_id}]'
+                        f" Move |bestof={match.bestof} from M{i} to M1</div>"
+                    )
+                    self.match_list_matches[0].bestof = match.bestof
+                    match.bestof_is_set = False
+                    self.match_list_matches[0].bestof_is_set = True
+                    break
+        self.match_list_text += "\n".join(
+            f"{match.header_string()}|M{i}={match.string()}"
+            for i, match in enumerate(self.match_list_matches, start=1)
+        )
         self.match_list_text += "\n}}"
         if self.match_list_comments:
             self.match_list_text += "\n" + " ".join(self.match_list_comments)
         if self.match_list_vod:
-            self.info += "⚠️ ... No match to move the VOD to\n"
+            self.info += '<div class="warning">⚠️ ... No match to move the VOD to</div>'
         self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
         self.counter["Legacy Match list"] += 1
         self.match_list_id = None
@@ -532,6 +595,14 @@ class Converter:
 
             self.changes.append((*section.contents_span, new_text))
 
+    def add_participant(self, p: Participant) -> None:
+        self.participants_by_name[p.name] = p
+        self.participants_by_link[clean_link(p.link or p.name)] = p
+
+    def add_participants(self, participants: list[Participant]) -> None:
+        for p in participants:
+            self.add_participant(p)
+
     def convert_table_to_participant_table(self, table: wtp.Table) -> None:
         sections: list[Section] = [Section("")]
         has_a_player = False
@@ -540,7 +611,7 @@ class Converter:
         has_race_count = False
         has_section_count = False
         notes = set()
-        players_with_asterisk = {}
+        players_with_asterisk: dict[str, int] = {}
         players_with_ref = defaultdict(list)
         refs = {}
 
@@ -632,6 +703,17 @@ class Converter:
                             p.name = link.title.strip()
                     else:
                         p.name = c.plain_text().strip().removeprefix("|").lstrip()
+                elif name in ("Flag", "FlagNoLink"):
+                    p.flag = clean_arg_value(tpl.get_arg("1"))
+                    if c.wikilinks:
+                        link = c.wikilinks[0]
+                        if link.text is not None:
+                            p.name = link.text.strip()
+                            p.link = link.title.strip()
+                        else:
+                            p.name = link.title.strip()
+                    else:
+                        p.name = c.plain_text().strip().removeprefix("|").lstrip()
                 elif name in ("RaceColorClass", "RaceIconSmall", "RaceColor2", "RaceIcon"):
                     race = clean_arg_value(tpl.get_arg("1"))[0].lower()
                     race = RACES.get(race, race)
@@ -666,7 +748,7 @@ class Converter:
                 p.notes = list(chain.from_iterable(n.split(",") for n in notes_m))
                 notes |= set(p.notes)
             if m := ASTERISK_PATTERN.search(val):
-                players_with_asterisk[p.name] = len(m.group(1))
+                players_with_asterisk[clean_link(p.link or p.name)] = len(m.group(1))
             if refs_m := REF_PATTERN.findall(val):
                 for m in refs_m:
                     ref_text = m[0]
@@ -676,7 +758,7 @@ class Converter:
                         refs[ref_name] = ref_text
                     elif ref_name not in refs or (refs[ref_name].endswith("/>") and not ref_text.endswith("/>")):
                         refs[ref_name] = ref_text
-                    players_with_ref[p.name].append(ref_name)
+                    players_with_ref[clean_link(p.link or p.name)].append(ref_name)
             if c.comments:
                 p.comments = "".join(
                     comment.string
@@ -698,13 +780,13 @@ class Converter:
             return False
 
         for section in sections:
-            self.participants |= {p.name: p for p in section.participants}
+            self.add_participants(section.participants)
         if table.comments:
-            self.info += "⚠️ Comments in participant table may be lost\n"
+            self.info += '<div class="warning">⚠️ Comments in participant table may be lost</div>'
 
         # Set the notes property for players with asterisks
         if players_with_asterisk:
-            self.info += "⚠️ Asterisks converted to notes in participant table\n"
+            self.info += '<div class="warning">⚠️ Asterisks converted to notes in participant table</div>'
             # Find the note number of each asterisk count
             asterisk_note_numbers = {}
             for asterisk_count in sorted(set(players_with_asterisk.values())):
@@ -714,11 +796,11 @@ class Converter:
                 notes.add(str(n))
                 asterisk_note_numbers[asterisk_count] = n
             # Set the note property for the players
-            for name, asterisk_count in players_with_asterisk.items():
-                self.participants[name].notes.append(str(asterisk_note_numbers[asterisk_count]))
+            for link, asterisk_count in players_with_asterisk.items():
+                self.participants_by_link[link].notes.append(str(asterisk_note_numbers[asterisk_count]))
         # Set the notes property for players with refs
         if players_with_ref:
-            self.info += "⚠️ Refs converted to notes in participant table\n"
+            self.info += '<div class="warning">⚠️ Refs converted to notes in participant table</div>'
             # Find the note number of each ref
             ref_note_numbers = {}
             for n, ref_name in enumerate(refs.keys(), start=1):
@@ -727,9 +809,9 @@ class Converter:
                 ref_note_numbers[ref_name] = n
                 notes.add(str(n))
             # Set the note property for the players
-            for name, ref_names in players_with_ref.items():
+            for link, ref_names in players_with_ref.items():
                 for ref_name in ref_names:
-                    self.participants[name].notes.append(str(ref_note_numbers[ref_name]))
+                    self.participants_by_link[link].notes.append(str(ref_note_numbers[ref_name]))
             # Build the text to append to the template
             refs_appendix = "\n" + "<br/>\n".join(
                 "{{Note|" + str(ref_note_numbers[ref_name]) + "|" + ref_text + "}}"
@@ -766,14 +848,14 @@ class Converter:
         for section in sections:
             if not section.participants:
                 if section.title:
-                    self.info += f"⚠️ Titled section without players in participant table\n"
+                    self.info += f'<div class="warning">⚠️ Titled section without players in participant table</div>'
                 else:
                     continue
 
             use_participant_section_template = bool(section.title)
             if len(sections) > 1 and not use_participant_section_template:
                 use_participant_section_template = True
-                self.info += f"⚠️ Title needed for untitled section in participant table\n"
+                self.info += f'<div class="warning">⚠️ Title needed for untitled section in participant table</div>'
 
             if use_participant_section_template:
                 result += f"|{{{{ParticipantSection|title={section.title}\n"
@@ -818,7 +900,7 @@ class Converter:
 
         self.prize_pool_localcurrency = clean_arg_value(tpl.get_arg("localcurrency"))
         if self.prize_pool_localcurrency:
-            if self.prize_pool_localcurrency.lower() == "pcnt":
+            if self.prize_pool_localcurrency.lower() in ("pcnt", "percent"):
                 start_texts.append(f"|percentage=1")
             if self.prize_pool_localcurrency.lower() == "points":
                 start_texts.append(f"|points=points")
@@ -869,15 +951,17 @@ class Converter:
         self.prize_pool_text = f"{{{{{self.prize_pool_type}PrizePool"
         self.prize_pool_text += "".join(texts)
         self.prize_pool_start_pos = tpl.span[0]
-        self.prize_texts: list[str] = []
+        self.prize_slots = []
         self.prize_pool_max_placement = 0
         self.prize_pool_qual_tuples: list[tuple[str, str]] = []
         self.prize_pool_noprize = self.read_bool(clean_arg_value(tpl.get_arg("noprize")))
+        self.prize_pool_points_used: set[int] = set()
 
-    def convert_prize_pool_slot(self, tpl: wtp.Template) -> str | None:
+    def convert_prize_pool_slot(self, tpl: wtp.Template) -> tuple[str | None, int, list[str], list[str]] | None:
         texts: list[str] = []
         is_award = self.prize_pool_type == "Award"
         args = {x.name.strip(): clean_arg_value(x) for x in tpl.arguments}
+        warning_info = f"[{self.prize_pool_type} prize pool]"
 
         start_texts, end_texts = self.arguments_to_texts(PRIZE_POOL_SLOT_ARGUMENTS, tpl)
 
@@ -892,6 +976,7 @@ class Converter:
             lc_text = self.prize_pool_get_points_text(None, self.prize_pool_localcurrency, val, default_arg_name)
             if lc_text is not None and lc_text.startswith("|localprize"):
                 start_texts.append(lc_text)
+                # The case when lc_text does not start with "|localprize" is handled after the points
         else:
             lc_text = None
         for j, (point_suffix, points_name) in self.prize_pool_points.items():
@@ -910,16 +995,17 @@ class Converter:
                 slot_size = 1
             else:
                 slot_size = int(place_split[1]) - int(place_split[0]) + 1
-        slot_opp_count = slot_size
+            warning_info += f"[place={place}]"
+        expected_opp_count = slot_size
         if count := args.get("count"):
-            slot_opp_count = int(count)
+            expected_opp_count = int(count)
 
+        opp_texts: list[str] = []
         if is_award or self.options["prize_pool_opponent_details"] or self.options["prize_pool_opponent_last_results"]:
-            detail_texts: list[str] = []
             i = 1
             do_continue = False
-            # range end is slot_opp_count + 1 to detect possible overflow: do not change to slot_opp_count
-            while i < slot_opp_count + 2 or do_continue:
+            # range end is expected_opp_count + 1 to detect possible overflow: do not change to expected_opp_count
+            while i < expected_opp_count + 2 or do_continue:
                 opp = PrizePoolOpponent()
                 if is_award or self.options["prize_pool_opponent_details"]:
                     read_prize_pool_opponent_args(opp, args, i, "", self.prize_pool_type)
@@ -943,7 +1029,9 @@ class Converter:
                 for j in self.prize_pool_points.keys():
                     if (x := tpl.get_arg(f"{j}points{i}")) or (j == 1 and (x := tpl.get_arg(f"points{i}"))):
                         opp.points[j] = clean_arg_value(x)
-                if (is_award or self.options["prize_pool_opponent_last_results"]) and (x := tpl.get_arg(f"date{i}") or tpl.get_arg(f"date{i}")):
+                if (is_award or self.options["prize_pool_opponent_last_results"]) and (
+                    x := tpl.get_arg(f"date{i}") or tpl.get_arg(f"date{i}")
+                ):
                     opp.date = clean_arg_value(x)
 
                 text = prize_pool_opponent_string(opp, "", self.prize_pool_type)
@@ -955,18 +1043,20 @@ class Converter:
                     text += "}}"
                     if opp.woto:
                         if opp.lastscore or opp.lastvsscore:
-                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] woto AND last score both defined\n"
+                            self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] woto AND last score both defined</div>'
                         text += f"|lastvsscore=L-W"
                     elif opp.wofrom:
                         if opp.lastscore or opp.lastvsscore:
-                            self.info += f"⚠️ [{self.prize_pool_type} prize pool] wofrom AND last score both defined\n"
+                            self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] wofrom AND last score both defined</div>'
                         text += f"|lastvsscore=W-L"
                     elif opp.lastscore and opp.lastvsscore:
                         text += f"|lastvsscore={opp.lastscore}-{opp.lastvsscore}"
                     elif opp.lastscore or opp.lastvsscore:
-                        self.info += f"⚠️ [{self.prize_pool_type} prize pool] last score is partially defined\n"
+                        self.info += (
+                            f'<div class="warning">⚠️ {warning_info}[opp={i}] last score is partially defined</div>'
+                        )
                 elif opp.woto or opp.wofrom or opp.lastscore or opp.lastvsscore:
-                    self.info += f"⚠️ [{self.prize_pool_type} prize pool] last score is defined but not the opponent\n"
+                    self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] last score is defined but not the opponent</div>'
                 if opp.usdprize:
                     text += f"|usdprize={opp.usdprize}"
                 if opp.localprize and (
@@ -990,48 +1080,41 @@ class Converter:
                     if self.prize_pool_type in ("Duo", "Archon"):
                         opp_text += "\n  "
                     opp_text += "}}"
-                    detail_texts.append(opp_text)
+                    opp_texts.append(opp_text)
 
                 do_continue = bool(text)
                 i += 1
 
-            if len(detail_texts) > 1 or self.prize_pool_type in ("Duo", "Archon"):
-                # Insert a new line if there are multiple players in the slot
-                texts += [f"\n  {text}" for text in detail_texts]
-                texts.append("\n")
-            elif detail_texts:
-                texts.append(detail_texts[0])
-            if slot_opp_count != 256 and len(detail_texts) != slot_opp_count:
-                word = "More" if len(detail_texts) > slot_opp_count else "Fewer"
-                self.info += f"⚠️ [{self.prize_pool_type} prize pool] {word} opponents than the slot capacity\n"
-
         if (
-            (x := tpl.get_arg("place"))
-            and (m := PLACE_PATTERN.search(clean_arg_value(x)))
-            and (place := int(m.group(0))) > self.prize_pool_max_placement
+            place
+            and (m := PLACE_PATTERN.search(place))
+            and (slot_max_place := int(m.group(0))) > self.prize_pool_max_placement
         ):
-            self.prize_pool_max_placement = place
+            self.prize_pool_max_placement = slot_max_place
 
-        return "{{Slot" + "".join(texts) + "}}"
+        return place, expected_opp_count, texts, opp_texts
 
     def prize_pool_get_points_text(self, i, points_name, val, default_arg_name) -> str | None:
+        if m := PRIZE_POOL_SEED_PATTERN.match(val):
+            qual_tuple = tuple((s or "").strip() for s in m.groups())
+            if qual_tuple in self.prize_pool_qual_tuples:
+                qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
+            else:
+                self.prize_pool_qual_tuples.append(qual_tuple)
+                qual_index = len(self.prize_pool_qual_tuples)
+            return f"|qualified{qual_index}=1"
         if points_name == "seed":
             if val in ("0", "-"):
                 return None
-            if m := PRIZE_POOL_SEED_PATTERN.match(val):
-                qual_tuple = tuple((s or "").strip() for s in m.groups())
-                if qual_tuple in self.prize_pool_qual_tuples:
-                    qual_index = self.prize_pool_qual_tuples.index(qual_tuple) + 1
-                else:
-                    self.prize_pool_qual_tuples.append(qual_tuple)
-                    qual_index = len(self.prize_pool_qual_tuples)
-                return f"|qualified{qual_index}=1"
+            self.info += (
+                f'<div class="warning">⚠️ [{self.prize_pool_type} prize pool] Raw value'
+                f" in 'seed' column ({val})</div>"
+            )
             if "Seed" in self.prize_pool_freetext:
                 freetext_index = self.prize_pool_freetext.index("Seed") + 1
             else:
                 self.prize_pool_freetext.append("Seed")
                 freetext_index = len(self.prize_pool_freetext)
-            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Raw value in 'seed' column ({val})\n"
             return f"|freetext{freetext_index}={val}"
         if i is not None and i == self.prize_pool_hardware_point_index:
             return f"|freetext1={val}"
@@ -1050,13 +1133,23 @@ class Converter:
                 self.prize_pool_qual_tuples.append(qual_tuple)
                 qual_index = len(self.prize_pool_qual_tuples)
             return f"|qualified{qual_index}=1"
-        if points_name == "pcnt":
+        if points_name in ("pcnt", "percent"):
             return f"|percentage={val.removesuffix('%').rstrip()}"
         if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
-            self.info += f"⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})\n"
+            self.info += (
+                f'<div class="warning">⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})</div>'
+            )
+
+        if i is not None:
+            # The points are used with their original intent
+            self.prize_pool_points_used.add(i)
         return f"|{default_arg_name}={val}"
 
     def convert_prize_pool_end(self, tpl: wtp.Template) -> None:
+        for j, (point_suffix, points_name) in self.prize_pool_points.items():
+            if j not in self.prize_pool_points_used:
+                self.prize_pool_text = self.prize_pool_text.replace(f"|points{point_suffix}={points_name}", "")
+
         for i, name in enumerate(self.prize_pool_freetext, start=1):
             self.prize_pool_text += f"|freetext{i}={name}"
 
@@ -1072,7 +1165,60 @@ class Converter:
         self.prize_pool_text = PRIZE_POOL_IMPORT_PATTERN.sub(r"\1\3\2", self.prize_pool_text)
 
         self.prize_pool_text += "\n"
-        self.prize_pool_text += "\n".join(f"|{slot_text}" for slot_text in self.prize_texts)
+        prize_pool_slot_texts = []
+        for slot_place, group in groupby(enumerate(self.prize_slots), lambda x: x[1][0] or f"|{x[0]}"):
+            warning_info = f"[{self.prize_pool_type} prize pool]"
+            if not slot_place.startswith("|"):
+                warning_info += f"[place={slot_place}]"
+
+            group_list = list(x[1] for x in group)
+
+            slot_expected_opp_count = group_list[0][1]
+            if len(group_list) == 1:
+                slot_texts, slot_opp_texts = group_list[0][2:]
+            else:
+                text_lists = [item[2] for item in group_list]
+                seen = set()
+                all_texts = [text for texts in text_lists for text in texts if not (text in seen or seen.add(text))]
+
+                # Get common texts (intersection of all text lists)
+                slot_texts = [text for text in all_texts if all(text in texts for texts in text_lists)]
+
+                # Get specific texts for each item
+                specific_texts = [[text for text in texts if text not in slot_texts] for texts in text_lists]
+
+                slot_opp_texts = []
+                for *_, texts, opp_texts in group_list:
+                    # Get specific texts
+                    specific_texts = [text for text in texts if text not in slot_texts]
+                    specific_string = "".join(specific_texts)
+                    slot_opp_texts += [
+                        PRIZE_POOL_SLOT_OPPONENT_SUB(rf"\1{specific_string}", opp_text) for opp_text in opp_texts
+                    ]
+
+                self.info += f'<div class="warning">⚠️ {warning_info} Merged slots with common place {slot_place}</div>'
+
+            slot_opp_count = len(slot_opp_texts)
+
+            if slot_opp_count > 1 or self.prize_pool_type in ("Duo", "Archon"):
+                # Insert a new line if there are multiple players in the slot
+                slot_texts += [f"\n  {text}" for text in slot_opp_texts]
+                slot_texts.append("\n")
+            elif slot_opp_texts:
+                slot_texts.append(slot_opp_texts[0])
+
+            check_count = (
+                self.prize_pool_type == "Award"
+                or self.options["prize_pool_opponent_details"]
+                or self.options["prize_pool_opponent_last_results"]
+            )
+            if check_count and slot_expected_opp_count != 256 and slot_opp_count != slot_expected_opp_count:
+                word = "More" if slot_opp_count > slot_expected_opp_count else "Fewer"
+                self.info += f'<div class="warning">⚠️ {warning_info} {word} opponents than the slot capacity</div>'
+
+            prize_pool_slot_texts.append("|{{Slot" + "".join(slot_texts) + "}}")
+
+        self.prize_pool_text += "\n".join(prize_pool_slot_texts)
         self.prize_pool_text += "\n}}"
 
         prize_pool_end_pos = tpl.span[1]
@@ -1203,7 +1349,7 @@ class Converter:
         opponents = tuple(self.team_aliases.get(opponent.lower(), opponent) for opponent in opponents)
         opponent_texts = []
         for i, opponent in enumerate(opponents, start=1):
-            opp_players = find_players(wtp.parse(opponent))
+            opp_players = find_player_templates(wtp.parse(opponent))
             if 0 < len(opp_players) < 5:
                 # For teams that are actually 1, 2, 3 or 4 player templates
                 opponent = "&".join(sorted(player.name for player in opp_players))
@@ -1328,7 +1474,9 @@ class Converter:
         winner = self.tm_args.get(f"{prefix}win")
 
         if scores[0] and scores[1]:
-            text = f"{{{{Map|subgroup={game_index}|map=Submatch {game_index}{text}|score1={scores[0]}|score2={scores[1]}"
+            text = (
+                f"{{{{Map|subgroup={game_index}|map=Submatch {game_index}{text}|score1={scores[0]}|score2={scores[1]}"
+            )
         else:
             text = f"{{{{Map{text}|map={map}|winner={winner}"
         if (
@@ -1343,15 +1491,16 @@ class Converter:
 
         return text
 
-    def convert_match_maps(self, tpl: wtp.Template) -> str | None:
+    def convert_match_maps(self, tpl: wtp.Template) -> Match:
         players = [MatchPlayer(), MatchPlayer()]
         texts: list[str] = []
         scores = ["", ""]
         num_scores = [None, None]
+        match = Match()
 
-        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}]"
+        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_list_matches) + 1}]"
         if tpl.comments:
-            self.info += f"⚠️ {info_id_text} Comments will be lost\n"
+            self.info += f'<div class="warning">⚠️ {info_id_text} Comments will be lost</div>'
 
         # Parse maps first
         map_texts = []
@@ -1374,8 +1523,13 @@ class Converter:
             if map_ == "Unknown":
                 map_ = ""
             map_winner = clean_arg_value(x_win)
-            if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
-                self.info += f"⚠️ {info_id_text} Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)\n"
+            if map_winner == "draw":
+                map_winner = "0"
+            elif map_winner and map_winner not in ("0", "1", "2", "skip"):
+                self.info += (
+                    f'<div class="warning">⚠️ {info_id_text} Map {i} winner is {map_winner}'
+                    " (expected 0, 1, 2, skip or draw)</div>"
+                )
 
             map_text = f"|map{i}={{{{Map"
             map_map_text = f"|map={map_}"
@@ -1433,6 +1587,10 @@ class Converter:
         for i, player in enumerate(players, start=1):
             if x := tpl.get_arg(f"player{i}"):
                 player.name = clean_arg_value(x)
+            if x := tpl.get_arg(f"playerlink{i}"):
+                player.link = clean_arg_value(x)
+                if player.link in ("false", "true"):
+                    player.link = ""
             if x := tpl.get_arg(f"player{i}flag"):
                 player.flag = clean_arg_value(x)
             if x := tpl.get_arg(f"player{i}race"):
@@ -1444,16 +1602,21 @@ class Converter:
                     text = f"|opponent{i}={{{{LiteralOpponent|BYE"
                 else:
                     text = f"|opponent{i}={{{{1Opponent|{player.name}"
+                    if player.link:
+                        text += f"|link={player.link}"
                     if self.options["match_maps_player_details"] == "remove_if_stored":
                         found, offrace = self.look_for_player(player)
                         if not found:
-                            text += f"|flag={player.flag}|race={player.race}"
+                            if player.flag:
+                                text += f"|flag={player.flag}"
+                            if player.race:
+                                text += f"|race={player.race}"
                         elif offrace:
                             text += f"|race={player.race}"
                     elif self.options["match_maps_player_details"] == "keep":
-                        if tpl.get_arg(f"player{i}flag"):
+                        if player.flag:
                             text += f"|flag={player.flag}"
-                        if tpl.get_arg(f"player{i}race"):
+                        if player.race:
                             text += f"|race={player.race}"
                 if scores[i - 1]:
                     text += f"|score={scores[i - 1]}"
@@ -1463,9 +1626,9 @@ class Converter:
                         pass
                     if map_texts and num_scores[i - 1] and map_scores[i - 1] != num_scores[i - 1]:
                         self.info += (
-                            f"⚠️ {info_id_text} Discrepancy between"
+                            f'<div class="warning">⚠️ {info_id_text} Discrepancy between'
                             f" map score {map_scores[i - 1]}"
-                            f" and score {scores[i - 1]} ({player.name})\n"
+                            f" and score {scores[i - 1]} ({player.name})</div>"
                         )
                 elif not map_texts and not is_walkover_set:
                     text += f"|score="
@@ -1481,38 +1644,58 @@ class Converter:
         # Is it a walkover?
         is_walkover = is_walkover_set or set(scores) == {"W", "L"}
 
-        # Guess bestof (if enabled)
+        # If the bestof argument exists and it has an integer value, then use it
+        if bestof := clean_arg_value(tpl.get_arg("bestof")):
+            try:
+                bestof = int(bestof)
+            except ValueError:
+                self.info += (
+                    f'<div class="warning">⚠️ {info_id_text} Existing bestof is not a decimal integer value</div>'
+                )
+            else:
+                match.bestof = bestof
+                match.bestof_is_set = True
+
+        # Guess bestof from scores (if enabled)
         bestof = None
-        bestof_text_inserted = False
         if self.options["match_maps_guess_bestof"] and not is_walkover and None not in num_scores:
             if num_scores[0] == num_scores[1]:
                 self.info += (
-                    f"⚠️ {info_id_text} bestof cannot be guessed for score {'-'.join(str(n) for n in num_scores)}\n"
+                    f'<div class="warning">⚠️ {info_id_text} bestof cannot be guessed'
+                    f" for score {'-'.join(str(n) for n in num_scores)}</div>"
                 )
             else:
                 bestof = max(num_scores) * 2 - 1
                 if bestof != self.match_maps_prev_bestof:
-                    texts.insert(0, f"|bestof={bestof}")
-                    bestof_text_inserted = True
+                    match.bestof_is_set = True
                     if self.match_maps_prev_bestof is not None:
                         self.info += (
-                            f"⚠️ {info_id_text} Change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
+                            f'<div class="warning">⚠️ {info_id_text} Change of bestof'
+                            f" from {self.match_maps_prev_bestof} to {bestof}</div>"
                         )
                     self.match_maps_prev_bestof = bestof
+        if match.bestof is not None:
+            if bestof != match.bestof:
+                self.info += (
+                    f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
+                )
+        else:
+            # By default, bestof is the same as previously
+            match.bestof = bestof or self.match_maps_prev_bestof
 
-        # If bestof is set, we do not copy the winner/bestof arguments
+        # If bestof is not None, we do not copy the winner/bestof arguments
         ignore_list = []
         if is_walkover:
             ignore_list.append("winner")
-        elif bestof:
+        elif match.bestof:
             winner = clean_arg_value(tpl.get_arg("winner"))
             if winner in ("1", "2"):
                 w = int(winner) - 1
                 if num_scores[w] < num_scores[1 - w]:
-                    self.info += f"⚠️ {info_id_text} bestof={bestof} => different winner\n"
+                    self.info += (
+                        f'<div class="warning">⚠️ {info_id_text} bestof={match.bestof} => different winner</div>'
+                    )
                 ignore_list.append("winner")
-        if bestof_text_inserted:
-            ignore_list.append("bestof")
         for i in vodgames_moved_to_map:
             ignore_list.append(f"vodgame{i}")
         start_texts, mid_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_ARGUMENTS, tpl, ignore_list)
@@ -1528,33 +1711,25 @@ class Converter:
                 match_list_vod_arg = f"vodgame{vodgame_index}"
             else:
                 match_list_vod_arg = "vod"
-            start_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
+            end_texts.append(f"|{match_list_vod_arg}={self.match_list_vod}")
             self.match_list_vod = None
 
-        texts = start_texts + texts + mid_texts
-
+        match.texts = start_texts + texts + mid_texts
         if map_texts and (has_a_non_empty_map or sum(map_scores) == 0):
-            texts += map_texts
+            match.texts += map_texts
+        match.texts += end_texts
 
-        texts += end_texts
+        return match
 
-        match_text = "{{Match"
-        if texts:
-            if not texts[0].startswith("|bestof"):
-                match_text += "\n"
-            match_text += "\n".join(texts) + "\n}}"
-        else:
-            match_text += "}}"
-        return match_text
-
-    def convert_match_maps_team(self, tpl: wtp.Template) -> str | None:
+    def convert_match_maps_team(self, tpl: wtp.Template) -> Match:
         teams = ["", ""]
         texts: list[str] = []
         scores = ["", ""]
+        match = Match()
 
-        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_texts) + 1}]"
+        info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_list_matches) + 1}]"
         if tpl.comments:
-            self.info += f"⚠️ {info_id_text} Comments will be lost\n"
+            self.info += f'<div class="warning">⚠️ {info_id_text} Comments will be lost</div>'
 
         for i in range(1, 3):
             if x := tpl.get_arg(f"team{i}"):
@@ -1562,9 +1737,20 @@ class Converter:
             if x := tpl.get_arg(f"score{i}"):
                 scores[i - 1] = clean_arg_value(x)
 
+        # If the bestof argument exists and it has an integer value, then use it
+        if bestof := clean_arg_value(tpl.get_arg("bestof")):
+            try:
+                bestof = int(bestof)
+            except ValueError:
+                self.info += (
+                    f'<div class="warning">⚠️ {info_id_text} Existing bestof is not a decimal integer value</div>'
+                )
+            else:
+                match.bestof = bestof
+                match.bestof_is_set = True
+
         # Guess bestof (if enabled)
         bestof = None
-        bestof_text_inserted = False
         if self.options["match_maps_guess_bestof"]:
             try:
                 num_scores = [int(score) for score in scores]
@@ -1572,25 +1758,33 @@ class Converter:
                 pass
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += f"⚠️ {info_id_text} bestof cannot be guessed for score {'-'.join(scores)}\n"
+                    self.info += (
+                        f'<div class="warning">⚠️ {info_id_text} bestof cannot be guessed'
+                        f" for score {'-'.join(scores)}</div>"
+                    )
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
-                        texts.insert(0, f"|bestof={bestof}")
-                        bestof_text_inserted = True
+                        match.bestof_is_set = True
                         if self.match_maps_prev_bestof is not None:
                             self.info += (
-                                f"⚠️ {info_id_text} Change of bestof from {self.match_maps_prev_bestof} to {bestof}\n"
+                                f'<div class="warning">⚠️ {info_id_text} Change of bestof'
+                                f" from {self.match_maps_prev_bestof} to {bestof}</div>"
                             )
                         self.match_maps_prev_bestof = bestof
+        if match.bestof is not None:
+            if bestof != match.bestof:
+                self.info += (
+                    f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
+                )
+        else:
+            # By default, bestof is the same as previously
+            match.bestof = bestof or self.match_maps_prev_bestof
 
         ignore_list = []
-        if bestof:
+        if match.bestof:
             ignore_list.append("winner")
-        if bestof_text_inserted:
-            ignore_list.append("bestof")
         start_texts, end_texts = self.arguments_to_texts(MATCH_MAPS_TEAM_ARGUMENTS, tpl, ignore_list)
-        texts += start_texts
 
         if x := tpl.get_arg("details"):
             try:
@@ -1616,16 +1810,9 @@ class Converter:
                     text += "}}"
                     texts.append(text)
 
-        texts += end_texts
+        match.texts = start_texts + texts + end_texts
 
-        match_text = "{{Match"
-        if texts:
-            if not texts[0].startswith("|bestof"):
-                match_text += "\n"
-            match_text += "\n".join(texts) + "\n}}"
-        else:
-            match_text += "}}"
-        return match_text
+        return match
 
     def convert_bracket(self, tpl: wtp.Template) -> str | None:
         bracket_name = clean_arg_value(tpl.get_arg("1"))
@@ -1685,9 +1872,9 @@ class Converter:
         prev_round_number = ""
         is_new_round = True
         prev_bestof = None
-        bracket_matches = {}
-        bestof_moves = []
-        bestof_sets = {}
+        bracket_matches: dict[str, Match] = {}
+        bestof_moves: list[BestofMove] = []
+        bestof_sets: dict[str, int] = {}
         for match_index, (match_id, (*player_prefixes, game_prefix)) in enumerate(conversion.items(), start=1):
             players = [MatchPlayer(), MatchPlayer()]
             match_texts0: list[str] = []
@@ -1759,8 +1946,10 @@ class Converter:
                     if map_ == "Unknown":
                         map_ = ""
                     map_winner = clean_arg_value(x_win)
-                    if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
-                        self.warn("Bracket", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)")
+                    if map_winner == "draw":
+                        map_winner = "0"
+                    elif map_winner and map_winner not in ("0", "1", "2", "skip"):
+                        self.warn("Bracket", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)")
 
                     map_text = f"|map{i}={{{{Map"
                     map_map_text = f"|map={map_}"
@@ -2004,6 +2193,7 @@ class Converter:
                     # Either no winner or two winners (!)
                     pass
 
+            # Check if the match has a non-empty output text
             if any(player.name for player in players) or match_texts0 or match_texts1:
                 match.texts = match_texts0 + player_texts + match_texts1
                 # Add headers between rounds
@@ -2292,34 +2482,72 @@ class Converter:
         return result
 
     def warn(self, type_: str, id_: str, text: str) -> None:
+        self.info += '<div class="warning">⚠️ '
         if id_ != self.warning_last_id:
-            self.info += f"⚠️ [{type_} {id_}]"
+            self.info += f"[{type_} {id_}]"
             self.warning_last_id = id_
         else:
-            self.info += f"⚠️     "
-        self.info += f"{text}\n"
+            self.info += "    "
+        self.info += f"{text}</div>"
 
     def look_for_player(self, player: MatchPlayer) -> tuple[bool, bool]:
-        if player.name not in self.participants:
+        if player.name not in self.participants_by_name:
             if player.name.endswith("*"):
-                self.info += f"⚠️ Asterisk in player name {player.name}\n"
+                self.info += f'<div class="warning">⚠️ Asterisk in player name {player.name}</div>'
             # found, is_offrace
             return False, False
 
-        participant = self.participants[player.name]
+        participant = self.participants_by_name[player.name]
 
         if player.flag:
             flag = player.flag.lower()
             flag = COUNTRIES.get(flag, flag)
             if flag != (p_flag := participant.clean_flag):
                 if p_flag:
-                    self.info += f"⚠️ {participant.name} found in participants with flag '{p_flag}' != '{flag}'\n"
+                    self.info += (
+                        f'<div class="warning">⚠️ {participant.name} found'
+                        f" in participants with flag '{p_flag}' != '{flag}'</div>"
+                    )
                 return False, False
 
         if player.race:
             race = player.race.lower()
             race = RACES.get(race, race)
             return True, race != participant.clean_race
+        return True, False
+
+    def look_for_player_by_link(self, player: MatchPlayer) -> tuple[bool, bool]:
+        """
+        This function is different from look_for_player:
+        * It uses the link to search
+        * It warns about different flag ONLY if the participant has a non-empty flag,
+          and sets is_offrace to True only if the participant has a non-empty race.
+          This is to avoid warnings when the participant flag/race are expected to be retrieved from the LPDB data.
+        """
+        player_link = clean_link(player.link or player.name)
+        if player_link not in self.participants_by_link:
+            if player_link.endswith("*"):
+                self.info += f'<div class="warning">⚠️ Asterisk in player.link {player.link}</div>'
+            # found, is_offrace
+            return False, False
+
+        participant = self.participants_by_link[player_link]
+
+        if player.flag:
+            flag = player.flag.lower()
+            flag = COUNTRIES.get(flag, flag)
+            if participant.clean_flag and flag != (p_flag := participant.clean_flag):
+                if p_flag:
+                    self.info += (
+                        f'<div class="warning">⚠️ {participant.name} found'
+                        f" in participants with flag '{p_flag}' != '{flag}'</div>"
+                    )
+                return False, False
+
+        if player.race:
+            race = player.race.lower()
+            race = RACES.get(race, race)
+            return True, participant.clean_race and race != participant.clean_race
         return True, False
 
     def find_match_summary(self, players: list[MatchPlayer]):
@@ -2422,8 +2650,7 @@ class Converter:
         id_ = clean_arg_value(tpl.get_arg("id"))
 
         participants: dict[int, Participant] = {}
-        player_indexes = [m[1] for x in tpl.arguments if (m := CROSS_TABLE_PLAYER_PATTERN.match(x.name.strip()))]
-        sorted_player_indexes = sorted(int(n) for n in player_indexes)
+        sorted_player_indexes = sorted(int(m[1]) for _, m in filter_template_args(tpl, CROSS_TABLE_PLAYER_PATTERN))
         for i in sorted_player_indexes:
             x = tpl.get_arg(f"player{i}")
             p = Participant(name=clean_arg_value(x))
@@ -2438,7 +2665,7 @@ class Converter:
                 p.flag = clean_arg_value(x)
             if x := tpl.get_arg(f"player{i}race"):
                 p.race = clean_arg_value(x)
-            self.participants[p.name] = p
+            self.add_participant(p)
             participants[i] = p
 
         cross_table_texts: list[str] = []
@@ -2489,9 +2716,11 @@ class Converter:
                         map_ = ""
                     are_all_maps_default_win &= map_ == "Default Win"
                     map_winner = clean_arg_value(x_win)
-                    if map_winner and map_winner not in ("0", "1", "2", "skip", "draw"):
+                    if map_winner == "draw":
+                        map_winner = "0"
+                    elif map_winner and map_winner not in ("0", "1", "2", "skip"):
                         self.warn(
-                            "Cross table", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2 or skip, draw)"
+                            "Cross table", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)"
                         )
 
                     map_text = f"|map{i}={{{{Map"
@@ -2647,6 +2876,252 @@ class Converter:
         result += "\n" + "\n".join(cross_table_texts) + "\n}}"
         return result
 
+    def process_group_table_start(self, tpl: wtp.Template) -> None:
+        ids = self.group_tbl_ids[self.group_tbl_index]
+        self.group_tbl_import_opponents = (
+            len(ids) != 0 and self.options["group_table_import"] == "opponents_and_results"
+        )
+        self.group_tbl_import_results = len(ids) != 0 and "results" in self.options["group_table_import"]
+        texts = [
+            WIDTH_IN_PX_TEXT_PATTERN.sub(r"\1", text) for text in self.arguments_to_texts(GROUP_TABLE_ARGUMENTS, tpl)
+        ]
+        self.group_tbl_text = "{{GroupTableLeague\n"
+        if not self.group_tbl_import_opponents and not self.group_tbl_import_results:
+            self.group_tbl_text += "|import=false"
+        else:
+            self.group_tbl_text += "\n".join(f"|matchGroupId{i}={id_}" for i, id_ in enumerate(ids, start=1))
+        self.group_tbl_text += "\n" + "\n".join(texts)
+        self.group_tbl_start_pos = tpl.span[0]
+        self.group_tbl_participant_count = 0
+        self.group_tbl_show_games = False
+        self.group_tbl_show_diff = False
+        self.group_tbl_manual_texts = []
+        self.group_tbl_match_count = 0
+        self.group_tbl_current_bg = "up"
+        self.group_tbl_bg_changes = []
+        self.group_tbl_has_dq_or_note_opponent = False
+
+    def process_group_table_slot(self, tpl: wtp.Template) -> None:
+        opponents = []
+        if (x := tpl.get_arg("1")) is None or not (text := clean_arg_value(x)):
+            return
+
+        # Info is in templates or as a simple text
+        if x.templates:
+            for sub_tpl in x.templates:
+                name = sub_tpl.normal_name(capitalize=True)
+                race = None
+                if name in ("Team", "TeamShort", "TeamIcon"):
+                    tt_name = clean_arg_value(sub_tpl.get_arg("1"))
+                    if tt_name.lower() in ("tbd", "none", "noteam", ""):
+                        if x.wikilinks:
+                            link = x.wikilinks[0]
+                            if link.text is not None:
+                                tt_name = link.text.strip()
+                                # link = link.title.strip()
+                            else:
+                                tt_name = link.title.strip()
+                        else:
+                            tt_name = TEAM_TEMPLATE_SUB("", clean_arg_value(x))
+                            tt_name = tt_name.replace("'''", "").strip()
+                    opponents.append(("Team", tt_name))
+                elif name in ("Player", "Player2", "Playersp", "InlinePlayer"):
+                    opponents.append((1, [get_match_player_from_template(sub_tpl)]))
+                elif name in ("Flag", "FlagNoLink") and (
+                    len(x.templates) == 1
+                    or (len(x.templates) == 2 and (race := x.templates[1].normal_name(capitalize=True)) in "PTZR")
+                ):
+                    p = MatchPlayer()
+                    p.flag = clean_arg_value(sub_tpl.get_arg("1"))
+                    if race:
+                        p.race = race.lower()
+                    if x.wikilinks:
+                        link = x.wikilinks[0]
+                        if link.text is not None:
+                            p.name = link.text.strip()
+                            p.link = link.title.strip()
+                        else:
+                            p.name = link.title.strip()
+                    else:
+                        p.name = SIMPLE_TEMPLATE_SUB("", clean_arg_value(x)).strip()
+                    opponents.append((1, [p]))
+                    break
+        else:
+            opponents.append(("Literal", text))
+        # In case of error, add a "<missing opponent>"
+        if len(opponents) == 0 or len(opponents) > 4:
+            self.info += f'<div class="warning">⚠️ No opponent or more than 4 opponents found in GroupTableSlot</div>'
+            opponents.append(("Literal", "<missing opponent>"))
+
+        if len(opponents) > 1:
+            # Multiple opponents
+            if all(opp[0] == 1 for opp in opponents):
+                # Merge single-player opponents in one opponent
+                opponents = [(len(opponents), sum((opp[1] for opp in opponents), []))]
+            else:
+                self.info += (
+                    f'<div class="warning">⚠️ Multiple opponents of different types found in GroupTableSlot</div>'
+                )
+                return
+        # Generate opponent text
+        type_, info = opponents[0]
+        self.group_tbl_participant_count += 1
+        n = self.group_tbl_participant_count
+        if type_ == "Literal":
+            opponent_text = f"|{n}={{{{LiteralOpponent|{info}}}}}"
+        elif type_ == "Team":
+            opponent_text = f"|t{n}={info}"
+        elif type_ == 1:
+            player = info[0]
+            if m := STRIKETHROUGH_PATTERN.match(player.name):
+                player.name = m.group(2)
+                if player.link == player.name:
+                    player.link = ""
+            opponent_text = f"|{n}={{{{1Opponent|{player.name}"
+            # found, offrace = self.look_for_player_by_link(player)
+            # if not found:
+            #     self.info += (
+            #         f'<div class="warning">⚠️ Player data from GroupTableSlot ({player.name}) will disappear</div>'
+            #     )
+            #     if player.link:
+            #         opponent_text += f"|link={player.link}"
+            #     if player.flag:
+            #         opponent_text += f"|flag={player.flag}"
+            #     if player.race:
+            #         opponent_text += f"|race={player.race}"
+            # elif offrace:
+            #     self.info += f'<div class="warning">⚠️ Player offracing in GroupTableSlot ({player.name}), data will disappear</div>'
+            #     opponent_text += f"|race={player.race}"
+            if player.link:
+                opponent_text += f"|link={player.link}"
+            if player.flag:
+                opponent_text += f"|flag={player.flag}"
+            if player.race:
+                opponent_text += f"|race={player.race}"
+            opponent_text += "}}"
+        elif isinstance(type_, int):
+            opponent_text = f"|{n}={{{{{type_}Opponent"
+            for i, player in enumerate(info, start=1):
+                opponent_text += f"|p{i}={player.name}"
+                found, offrace = self.look_for_player_by_link(player)
+                if not found:
+                    self.info += (
+                        f'<div class="warning">⚠️ Player data from GroupTableSlot ({player.name}) will disappear</div>'
+                    )
+                    if player.link:
+                        opponent_text += f"|p{i}link={player.link}"
+                    if player.flag:
+                        opponent_text += f"|p{i}flag={player.flag}"
+                    if player.race:
+                        opponent_text += f"|p{i}race={player.race}"
+                elif offrace:
+                    self.info += f'<div class="warning">⚠️ Player offracing in GroupTableSlot ({player.name}), data will disappear</div>'
+                    opponent_text += f"|p{i}race={player.race}"
+            opponent_text += "}}"
+        if STRIKETHROUGH_PATTERN.search(text) is not None:
+            opponent_text += f"|dq{n}=true"
+            self.group_tbl_has_dq_or_note_opponent = True
+        if (m := NOTE_PATTERN.search(text)) is not None:
+            opponent_text += f"|note{n}={m[1]}"
+            self.group_tbl_has_dq_or_note_opponent = True
+
+        # Add manual results
+        args = {x.name.strip(): clean_arg_value(x) for x in tpl.arguments}
+        win_g_int = None
+        lose_g_int = None
+        results_text = ""
+        if win_m := args.get("win_m"):
+            try:
+                win_m_int = int(win_m)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical win_m value ({win_m})</div>'
+            else:
+                self.group_tbl_match_count += win_m_int
+            results_text += f"|temp_win_m{n}={win_m}"
+        if tie_m := args.get("tie_m"):
+            try:
+                tie_m_int = int(tie_m)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical tie_m value ({tie_m})</div>'
+            else:
+                self.group_tbl_match_count += tie_m_int
+            results_text += f"|temp_tie_m{n}={tie_m}"
+        if lose_m := args.get("lose_m"):
+            try:
+                lose_m_int = int(lose_m)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical lose_m value ({lose_m})</div>'
+            else:
+                self.group_tbl_match_count += lose_m_int
+            results_text += f"|temp_lose_m{n}={lose_m}"
+        if win_g := args.get("win_g"):
+            try:
+                win_g_int = int(win_g)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical win_g value ({win_g})</div>'
+            self.group_tbl_show_games = True
+            results_text += f"|temp_win_g{n}={win_g}"
+        if lose_g := args.get("lose_g"):
+            try:
+                lose_g_int = int(lose_g)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical lose_g value ({lose_g})</div>'
+            self.group_tbl_show_games = True
+            results_text += f"|temp_lose_g{n}={lose_g}"
+        if diff := args.get("diff"):
+            try:
+                diff_int = int(diff)
+            except ValueError:
+                self.info += f'<div class="warning">⚠️ Non-numerical diff value ({diff})</div>'
+            else:
+                self.group_tbl_show_diff = True
+                if win_g_int is None or lose_g_int is None:
+                    self.info += f'<div class="warning">⚠️ diff defined when win_g or lose_g is not defined</div>'
+                else:
+                    computed_diff = win_g_int - lose_g_int
+                    if computed_diff != diff_int:
+                        self.info += (
+                            f'<div class="warning">⚠️ Diff value ({diff_int}) != win_g - lose_g ({computed_diff})</div>'
+                        )
+        if bg := args.get("bg"):
+            results_text += f"|bg{n}={bg}"
+            unaliased_bg = BG_ALIASES.get(bg, bg)
+            if unaliased_bg != self.group_tbl_current_bg:
+                self.group_tbl_bg_changes.append((n, bg))
+                self.group_tbl_current_bg = unaliased_bg
+
+        if not self.group_tbl_import_results:
+            opponent_text += results_text
+        self.group_tbl_manual_texts.append(opponent_text)
+
+    def process_group_table_end(self, tpl: wtp.Template) -> None:
+        group_table_end_pos = tpl.span[1]
+
+        self.group_tbl_text = GROUP_TABLE_TITLE_WIDTH_SUB(r"\1\2", self.group_tbl_text)
+
+        if self.options["group_table_set_pbg_from_bg"] and self.group_tbl_bg_changes:
+            self.group_tbl_text += "\n" + "".join(f"|pbg{n}={bg}" for n, bg in self.group_tbl_bg_changes)
+
+        additional_texts = []
+        if not self.group_tbl_show_games:
+            additional_texts.append("|show_g=false")
+        is_gsl_group_inferred = self.group_tbl_participant_count == 4 and self.group_tbl_match_count == 10
+        if not self.group_tbl_show_diff and not is_gsl_group_inferred:
+            additional_texts.append("|diff=false")
+        if additional_texts:
+            self.group_tbl_text += "\n" + "".join(additional_texts)
+
+        self.group_tbl_text = GROUP_TABLE_SINGLE_PBG_SUB(r"\1\2", self.group_tbl_text)
+
+        if not self.group_tbl_import_opponents or self.group_tbl_has_dq_or_note_opponent:
+            self.group_tbl_text += "\n" + "\n".join(self.group_tbl_manual_texts)
+        self.group_tbl_text += "\n}}"
+
+        self.changes.append((self.group_tbl_start_pos, group_table_end_pos, self.group_tbl_text))
+        self.counter["GroupTable"] += 1
+        self.group_tbl_text = ""
+        self.group_tbl_index += 1
+
     def add_participant_from_player_template(self, tpl: wtp.Template) -> None:
         p = Participant()
         if x := tpl.get_arg("1"):
@@ -2661,7 +3136,7 @@ class Converter:
             if p.link in ("false", "true"):
                 p.link = ""
 
-        default_p = self.participants.get(p.name, None)
+        default_p = self.participants_by_name.get(p.name, None)
         if x := tpl.get_arg("flag"):
             p.flag = clean_arg_value(x)
         if not p.flag and default_p:
@@ -2670,12 +3145,12 @@ class Converter:
             p.race = clean_arg_value(x)
         if not p.race and default_p:
             p.race = default_p.race
-        self.participants[p.name] = p
+        self.add_participant(p)
 
     def add_participants_from_participant_table(self, tpl: wtp.Template) -> list[Participant]:
         participants: list[Participant] = []
-        for i in (m[1] for x in tpl.arguments if (m := PARTICIPANT_TABLE_PARTICIPANT_PATTERN.match(x.name.strip()))):
-            x = tpl.get_arg(str(i)) or tpl.get_arg(f"p{i}")
+        for x, m in filter_template_args(tpl, PARTICIPANT_TABLE_PARTICIPANT_PATTERN):
+            i = m[1]
             p = Participant(name=clean_arg_value(x))
             if not p.name:
                 del p
@@ -2688,43 +3163,14 @@ class Converter:
                 p.flag = clean_arg_value(x)
             if x := tpl.get_arg(f"p{i}race"):
                 p.race = clean_arg_value(x)
-            self.participants[p.name] = p
+            self.add_participant(p)
             participants.append(p)
-        return participants
-
-    def add_participants_from_group_table_league(self, tpl: wtp.Template) -> list[Participant]:
-        participants: list[Participant] = []
-        try:
-            i = min(
-                int(m.group(1))
-                for x in tpl.arguments
-                if (m := GROUP_TABLE_LEAGUE_PLAYER_PATTERN.match(x.name.strip()))
-            )
-        except ValueError:
-            i = 1
-        while (x := tpl.get_arg(str(i))) or (x := tpl.get_arg(f"p{i}")):
-            p = Participant(name=clean_arg_value(x))
-            if not p.name:
-                del p
-                i += 1
-                continue
-            if x := tpl.get_arg(f"p{i}link"):
-                p.link = clean_arg_value(x)
-                if p.link in ("false", "true"):
-                    p.link = ""
-            if x := tpl.get_arg(f"p{i}flag"):
-                p.flag = clean_arg_value(x)
-            if x := tpl.get_arg(f"p{i}race"):
-                p.race = clean_arg_value(x)
-            self.participants[p.name] = p
-            participants.append(p)
-            i += 1
         return participants
 
     def read_bool(self, val: str | bool | int) -> bool:
         is_true = val in ("true", "t", "yes", "y", True, "1", 1)
         if not is_true and val not in ("", "false", "f", "no", "n", False, "0", 0):
-            self.info += f"⚠️ read_bool on a non-boolean value ({val})\n"
+            self.info += f'<div class="warning">⚠️ read_bool on a non-boolean value ({val})</div>'
         return is_true
 
     def convert_very_old_team_matches(self):
@@ -3184,24 +3630,34 @@ def generate_id(length=10, chars=string.ascii_letters + string.digits) -> str:
     return "".join(random.SystemRandom().choice(chars) for _ in range(length))
 
 
-def find_players(parsed: wtp.WikiText) -> list[MatchPlayer]:
+def clean_link(link: str) -> str:
+    return link[0].upper() + link[1:].replace("_", " ")
+
+
+def find_player_templates(parsed: wtp.WikiText) -> list[MatchPlayer]:
     players: list[MatchPlayer] = []
     for tpl in parsed.templates:
         tpl_name = tpl.normal_name(capitalize=True)
         if tpl_name in ("Player", "Player2", "Playersp"):
-            player = MatchPlayer()
-            if x := tpl.get_arg("1"):
-                player.name = clean_arg_value(x)
-            if x := tpl.get_arg("link"):
-                player.link = clean_arg_value(x)
-                if player.link in ("false", "true"):
-                    player.link = ""
-            if x := tpl.get_arg("flag"):
-                player.flag = clean_arg_value(x)
-            if x := tpl.get_arg("race"):
-                player.race = clean_arg_value(x)
-            players.append(player)
+            players.append(get_match_player_from_template(tpl))
     return players
+
+
+def get_match_player_from_template(tpl: wtp.Template) -> MatchPlayer:
+    player = MatchPlayer()
+    if x := tpl.get_arg("1"):
+        player.name = clean_arg_value(x)
+        if m := PIPE_PATTERN.match(player.name):
+            player.link, player.name = m.groups()
+    if x := tpl.get_arg("link"):
+        player.link = clean_arg_value(x)
+        if player.link in ("false", "true"):
+            player.link = ""
+    if x := tpl.get_arg("flag"):
+        player.flag = clean_arg_value(x)
+    if x := tpl.get_arg("race"):
+        player.race = clean_arg_value(x)
+    return player
 
 
 def remove_start_and_end_newlines(text: str) -> str:
@@ -3297,70 +3753,15 @@ def prize_pool_opponent_string(opp, prefix, type_):
     return text
 
 
-def convert_page(wiki: str, title: str, options: dict[str, Any]) -> tuple[str, str, str, str]:
-    title = title.replace("_", " ")
-
-    cache_folder = Path(__file__).parent.parent / "cache" / wiki
-    makedirs(cache_folder, exist_ok=True)
-    cache_title = re.sub(r"[\\/\?\":\*]", "_", title)
-    p = cache_folder / cache_title
-
-    info_cache = ""
-    if not options["ignore_cache"] and p.exists() and p.is_file():
-        cache_timestamp = os.path.getmtime(p)
-        info_cache += f"Getting cached content ({datetime.fromtimestamp(cache_timestamp).isoformat()})"
-        text: str | None = p.read_text(encoding="utf-8")
-        if datetime.now().timestamp() - cache_timestamp > 3600:
-            info_cache += "\n⚠️ Cache is more than 1-hour old"
-    else:
-        cache_timestamp = None
-        info_cache += "Getting content from the API"
-        text = get_liquipedia_page_content(wiki, title)
-        if text:
-            p.write_text(text, encoding="utf-8")
-
-    if text:
-        converted, info, summary = Converter(text, title, options).convert()
-        return converted, info_cache + "\n" + info, summary, text
-
-    return "", f"Error while getting {title} from wiki {wiki}", "", ""
-
-
-def convert_wikitext(text: str, title: str, options: dict[str, Any]) -> tuple[str, str, str]:
-    if text:
-        return Converter(text, title, options).convert()
-
-    return "", f"Error: no wikitext", ""
-
-
-def get_liquipedia_page_content(wiki: str, title: str) -> str | None:
-    params = {
-        "action": "query",
-        "format": "json",
-        "titles": title,
-        "prop": "revisions",
-        "rvprop": "content",
-    }
-
-    response = requests.get(API_URLS[wiki], headers=HEADERS, params=params)
-    data = response.json()
-
-    page_data = data["query"]["pages"]
-    page_id = list(page_data.keys())[0]
-
-    if page_id == "-1":
-        print("Page not found")
-        return None
-
-    revision_data = page_data[page_id]["revisions"][0]
-    content = revision_data["*"]
-
-    return content
+def filter_template_args(tpl: wtp.Template, pattern: re.Pattern):
+    for x in tpl.arguments:
+        if m := pattern.match(x.name.strip()):
+            yield (x, m)
 
 
 if __name__ == "__main__":
     wiki = "starcraft2"
     title = "The Foreign Hope"
-    text = convert_page(wiki, title, {})
+    text = TournamentConverter(wiki, title, {}).convert()
     if text:
         print(text)

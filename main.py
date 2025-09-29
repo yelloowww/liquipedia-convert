@@ -8,7 +8,8 @@ import bottle
 from bracket_join import bracket_join
 from convert_navbox import NavboxConverter
 from convert_team_card import convert_team_card
-from conversion.convert_tournaments import convert_page, convert_wikitext
+from conversion.convert import convert_page, convert_wikitext
+from conversion.convert_tournaments import TournamentConverter
 from conversion.default_option_values import BOOL_OPTIONS, STRING_OPTIONS
 
 
@@ -49,15 +50,15 @@ def convert():
 @bottle.jinja2_view("templates/convert_result")
 def convert_result():
     options = {
-        **{key: bool(bottle.request.forms.get(key)) for key in BOOL_OPTIONS},
-        **{key: bottle.request.forms.get(key) for key in STRING_OPTIONS},
+        **{key: bool(getattr(bottle.request.forms, key, value)) for key, value in BOOL_OPTIONS.items()},
+        **{key: getattr(bottle.request.forms, key, value) for key, value in STRING_OPTIONS.items()},
     }
 
-    input_type = bottle.request.forms.get("input_type", "")
-    wiki = bottle.request.forms.get("wiki", "")
-    title = bottle.request.forms.get("title", "")
-    wikitext_title = bottle.request.forms.get("wikitext_title", "")
-    wikitext = bottle.request.forms.get("wikitext", "")
+    input_type = bottle.request.forms.input_type or ""
+    wiki = bottle.request.forms.wiki or ""
+    title = bottle.request.forms.title or ""
+    wikitext_title = bottle.request.forms.wikitext_title or ""
+    wikitext = bottle.request.forms.wikitext or ""
     if (
         (input_type == "wiki_and_title" and (not wiki or not title))
         or (input_type == "wiki_and_text" and not wikitext)
@@ -87,9 +88,9 @@ def convert_result():
         }
 
     if input_type == "wiki_and_title":
-        converted, info, summary, wikitext = convert_page(wiki, title, options)
+        converted, info, summary, wikitext = convert_page(wiki, title, convert_tournament, options)
     elif input_type == "wikitext":
-        converted, info, summary = convert_wikitext(wikitext, wikitext_title, options)
+        converted, info, summary = convert_wikitext(wikitext, wikitext_title, convert_tournament, options)
 
     return {
         "input_type": input_type or "wiki_and_title",
@@ -109,8 +110,8 @@ def convert_result():
 @enable_cors
 def convert_api():
     options = {
-        **{key: bool(bottle.request.json.get(key)) for key in BOOL_OPTIONS},
-        **{key: bottle.request.json.get(key) for key in STRING_OPTIONS},
+        **{key: bool(bottle.request.json.get(key, value)) for key, value in BOOL_OPTIONS.items()},
+        **{key: bottle.request.json.get(key, value) for key, value in STRING_OPTIONS.items()},
     }
 
     # for k, v in options.items():
@@ -149,9 +150,9 @@ def convert_api():
         }
 
     if input_type == "wiki_and_title":
-        converted, info, summary, wikitext = convert_page(wiki, title, options)
+        converted, info, summary, wikitext = convert_page(wiki, title, convert_tournament, options)
     elif input_type == "wikitext":
-        converted, info, summary = convert_wikitext(wikitext, wikitext_title, options)
+        converted, info, summary = convert_wikitext(wikitext, wikitext_title, convert_tournament, options)
 
     return {
         "input_type": input_type,
@@ -259,6 +260,10 @@ def convert_api():
         "summary": summary,
         "options": options,
     }
+
+
+def convert_tournament(text, title, options) -> tuple[str, str, str]:
+    return TournamentConverter(text, title, options).convert()
 
 
 def convert_navbox(text, title, options) -> tuple[str, str, str]:

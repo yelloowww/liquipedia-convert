@@ -57,11 +57,11 @@
             <label for="prize_pool_table_do_not_convert">Do not convert prize pool tables</label>
           </div>
           <div>
-            <input type="radio" name="prize_pool_import" id="import_false" value="none"{% if options['prize_pool_import'] == 'false' or not options['prize_pool_import'] %}checked{% endif %}/>
+            <input type="radio" name="prize_pool_import" id="import_false" value="false" {% if options['prize_pool_import'] == 'false' or not options['prize_pool_import'] %}checked{% endif %}/>
             <label for="import_false">Disable import if <code>lpdb</code> is not true</label>
           </div>
           <div>
-            <input type="radio" name="prize_pool_import" id="import_no_limit" value="none"{% if options['prize_pool_import'] == 'no_limit' %}checked{% endif %}/>
+            <input type="radio" name="prize_pool_import" id="import_no_limit" value="no_limit"{% if options['prize_pool_import'] == 'no_limit' %}checked{% endif %}/>
             <label for="import_no_limit">Enable import (default) without an import limit</label>
           </div>
           <div>
@@ -140,6 +140,26 @@
           <div>
             <input type="checkbox" name="bracket_move_vodgames_to_map" id="bracket_move_vodgames_to_map"{% if options['bracket_move_vodgames_to_map'] %}checked{% endif %}/>
             <label for="bracket_move_vodgames_to_map">Move vodgameX arguments to Map templates</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Group tables</legend>
+          <div>
+            <input type="radio" name="group_table_import" id="group_table_import_opponents_and_results" value="opponents_and_results"{% if options['group_table_import'] == 'opponents_and_results' or not options['group_table_import'] %}checked{% endif %}/>
+            <label for="group_table_import_opponents_and_results">Import opponents and results from matchlists</label>
+          </div>
+          <div>
+            <input type="radio" name="group_table_import" id="group_table_import_results_only" value="results_only"{% if options['group_table_import'] == 'results_only' or not options['group_table_import'] %}checked{% endif %}/>
+            <label for="group_table_import_results_only">Import results only from matchlists (opponents listed in GroupTableSlots)</label>
+          </div>
+          <div>
+            <input type="radio" name="group_table_import" id="group_table_import_nothing" value="nothing"{% if options['group_table_import'] == 'nothing' or not options['group_table_import'] %}checked{% endif %}/>
+            <label for="group_table_import_none">Import nothing from matchlists (use inputs from GroupTableSlots)</label>
+          </div>
+          <div>
+            <input type="checkbox" name="group_table_set_pbg_from_bg" id="group_table_set_pbg_from_bg"{% if options['group_table_set_pbg_from_bg'] %}checked{% endif %}/>
+            <label for="group_table_set_pbg_from_bg">Set <code>pbg</code> arguments corresponding to <code>bg</code> argument values</label>
           </div>
         </fieldset>
 
