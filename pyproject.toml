@@ -12,5 +12,8 @@ dependencies = [
     "wikitextparser>=0.56.2",
 ]
 
+[tool.setuptools]
+py-modules = []
+
 [tool.black]
 line-length = 119

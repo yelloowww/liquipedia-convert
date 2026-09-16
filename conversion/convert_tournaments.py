@@ -715,7 +715,10 @@ class TournamentConverter:
                     else:
                         p.name = c.plain_text().strip().removeprefix("|").lstrip()
                 elif name in ("RaceColorClass", "RaceIconSmall", "RaceColor2", "RaceIcon"):
-                    race = clean_arg_value(tpl.get_arg("1"))[0].lower()
+                    if x := tpl.get_arg("faction"):
+                        race = clean_arg_value(x)[0].lower()
+                    elif x := tpl.get_arg("1"):
+                        race = clean_arg_value(x)[0].lower()
                     race = RACES.get(race, race)
                     for race_index in range(real_col, next_real_col):
                         if race == "r" and "Unknown" in val:

@@ -55,7 +55,7 @@ def convert_team_card(original: str) -> str:
                             player.link = x.value.strip()
                         if x := tpl.get_arg("flag"):
                             player.flag = x.value.strip()
-                        if x := tpl.get_arg("race"):
+                        if (x := tpl.get_arg("race")) or (x := tpl.get_arg("faction")):
                             player.race = x.value.strip()
                     elif name in ("TeamPart", "TeamShort"):
                         if x := tpl.get_arg("1"):
