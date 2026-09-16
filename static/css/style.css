@@ -137,6 +137,8 @@ input[name="input_type"]:checked + .box {
 
 .options {
     display: grid;
+    max-height: max(400px, 60vh);
+    overflow-y: auto;
     padding-block-start: 0.5em;
     grid-template-columns: 1fr;
     gap: 1em 1em;
@@ -148,10 +150,19 @@ input[name="input_type"]:checked + .box {
     }
 }
 
+button:not(:disabled) {
+    cursor: pointer;
+}
+
 button[type="submit"] {
     font-size: 1.1em;
     font-weight: bold;
     margin-block-end: 0.5em;
+    color: white;
+    border: 0;
+    border-radius: 0.2em;
+    padding: 0.5em;
+    background: #1f73c1;
 }
 
 #result-container {
