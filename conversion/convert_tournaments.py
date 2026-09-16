@@ -681,14 +681,14 @@ class TournamentConverter:
                 if name in ("TeamPart", "TeamIcon"):
                     has_a_teampart_tpl = True
                     p.team = clean_arg_value(tpl.get_arg("1"))
-                elif name in ("Player", "Playersp"):
+                elif name in ("Player", "Playersp", "InlinePlayer"):
                     if x := tpl.get_arg("1"):
                         p.name = clean_arg_value(x)
                         if m := PIPE_PATTERN.match(p.name):
                             p.link, p.name = m.groups()
                     if x := tpl.get_arg("flag"):
                         p.flag = clean_arg_value(x)
-                    if race := clean_arg_value(tpl.get_arg("race")):
+                    if (race := clean_arg_value(tpl.get_arg("race"))) and race != "u":
                         p.race = race
                     if x := tpl.get_arg("link"):
                         p.link = clean_arg_value(x)
