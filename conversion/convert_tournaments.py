@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from itertools import chain, combinations, groupby
+from itertools import chain, combinations, groupby, batched
 import random
 import re
 import string
@@ -690,7 +690,9 @@ class TournamentConverter:
                             p.link, p.name = m.groups()
                     if x := tpl.get_arg("flag"):
                         p.flag = clean_arg_value(x)
-                    if (race := clean_arg_value(tpl.get_arg("race"))) and race != "u":
+                    if ((x := tpl.get_arg("race")) or (x := tpl.get_arg("faction"))) and (
+                        (race := clean_arg_value(x)) != "u" or not has_a_race_cell
+                    ):
                         p.race = race
                     if x := tpl.get_arg("link"):
                         p.link = clean_arg_value(x)
@@ -831,7 +833,11 @@ class TournamentConverter:
         ):
             return self.prize_pool_table_from_sections(sections) + refs_appendix
 
-        return self.participant_table_from_sections(sections, has_race_count, has_section_count) + refs_appendix
+        is_2v2 = max_col % 2 == 0 and not has_a_race_cell and all(len(sctn.participants) % 2 == 0 for sctn in sections)
+        table_wikitext = self.participant_table_from_sections(
+            sections, has_race_count, has_section_count, is_2v2=is_2v2
+        )
+        return table_wikitext + refs_appendix
 
     def participant_table_from_sections(
         self,
@@ -839,6 +845,7 @@ class TournamentConverter:
         enable_count: bool = False,
         enable_section_count: bool = False,
         is_hidden: bool = False,
+        is_2v2: bool = False,
     ) -> str:
         has_a_non_empty_team = any(p.team for section in sections for p in section.participants)
 
@@ -864,21 +871,51 @@ class TournamentConverter:
 
             if use_participant_section_template:
                 result += f"|{{{{ParticipantSection|title={section.title}\n"
-            for i, p in enumerate(section.participants, start=1):
-                result += f"|{p.name}"
-                if p.link and p.link != p.name:
-                    result += f"|p{i}link={p.link}"
-                if self.options["player_details"]:
-                    result += f"|p{i}flag={p.flag}|p{i}race={p.race}"
-                if self.options["team_details"] and has_a_non_empty_team:
-                    result += f'|p{i}team={p.team or ""}'
-                if p.dq:
-                    result += f"|p{i}dq=1"
-                if p.notes:
-                    result += f"|p{i}note={','.join(p.notes)}"
-                if p.comments:
-                    result += p.comments
-                result += "\n"
+            if is_2v2:
+                for p1, p2 in batched(section.participants, 2):
+                    result += "|{{2Opponent"
+                    result += f"|p1={p1.name}"
+                    if p1.link and p1.link != p1.name:
+                        result += f"|p1link={p1.link}"
+                    if self.options["player_details"]:
+                        result += f"|p1flag={p1.flag}|p1race={p1.race}"
+                    if self.options["team_details"] and has_a_non_empty_team:
+                        result += f'|p1team={p1.team or ""}'
+                    if p1.dq:
+                        result += f"|p1dq=1"
+                    result += f"|p2={p2.name}"
+                    if p2.link and p2.link != p2.name:
+                        result += f"|p2link={p2.link}"
+                    if self.options["player_details"]:
+                        result += f"|p2flag={p2.flag}|p2race={p2.race}"
+                    if self.options["team_details"] and has_a_non_empty_team:
+                        result += f'|p2team={p2.team or ""}'
+                    if p2.dq:
+                        result += f"|p2dq=1"
+                    if p1.notes or p2.notes:
+                        result += f"|note={','.join(p1.notes + p2.notes)}"
+                    result += "}}"
+                    if p1.comments:
+                        result += p1.comments
+                    if p2.comments:
+                        result += p2.comments
+                    result += "\n"
+            else:
+                for i, p in enumerate(section.participants, start=1):
+                    result += f"|{p.name}"
+                    if p.link and p.link != p.name:
+                        result += f"|p{i}link={p.link}"
+                    if self.options["player_details"]:
+                        result += f"|p{i}flag={p.flag}|p{i}race={p.race}"
+                    if self.options["team_details"] and has_a_non_empty_team:
+                        result += f'|p{i}team={p.team or ""}'
+                    if p.dq:
+                        result += f"|p{i}dq=1"
+                    if p.notes:
+                        result += f"|p{i}note={','.join(p.notes)}"
+                    if p.comments:
+                        result += p.comments
+                    result += "\n"
             if use_participant_section_template:
                 result += "}}\n"
         result += "}}"
