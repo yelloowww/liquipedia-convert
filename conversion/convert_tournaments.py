@@ -15,7 +15,6 @@ from conversion.classes import *
 from conversion.my_wikitextparser import get_italics, get_sections, Italic, Section as mwtp_Section
 from conversion.races import RACES
 
-
 rc = re.compile
 WIKITEXT_COMMENT_PATTERN = rc(r"<!--((?!-->).)*-->", re.UNICODE | re.DOTALL)
 NOTE_PATTERN = rc(r"<sup>((?:(?!<\/sup>).)+)<\/sup>", re.UNICODE)
@@ -346,7 +345,9 @@ class TournamentConverter:
                     # Process the matchX arguments
                     for x, m in sorted(match_args, key=lambda t: int(t[1][1])):
                         if not x.templates:
-                            self.info += f'<div class="warning">⚠️ Empty {m[0]} in matchlist {self.match_list_id}</div>'
+                            self.info += (
+                                f'<div class="warning">⚠️ Empty {m[0]} in matchlist {self.match_list_id}</div>'
+                            )
                         else:
                             sub_tpl = x.templates[0]
                             self.pass2_for_template(sub_tpl)
@@ -391,9 +392,10 @@ class TournamentConverter:
                     self.add_participant_from_player_template(tpl)
             case "ParticipantTable" | "ParticipantSection":
                 participants = self.add_participants_from_participant_table(tpl)
-                if self.options["participant_table_convert_first_to_qualified_prize_pool_table"]:
+                if (self.options["participant_table_convert_first_to_qualified_prize_pool_table"] and self.participant_tables_processed == 0):
                     prize_pool_table = self.prize_pool_table_from_sections([Section("", participants)])
                     self.changes.append((*tpl.span, prize_pool_table))
+                    self.participant_tables_processed += 1
 
             case "LegacyPlayerCrossTable":
                 if cross_table_result := self.convert_legacy_player_cross_table(tpl):
@@ -642,7 +644,7 @@ class TournamentConverter:
         prev_row = None
         next_real_col = 0
         for row, col, c in ((row, col, c) for row, row_cells in enumerate(cells) for col, c in enumerate(row_cells)):
-            # Keep track of the real column index, taking colspan into account
+            # Keep track of the real column index, which takes colspan into account
             if row != prev_row:
                 real_col = 0
                 prev_row = row
@@ -1199,7 +1201,9 @@ class TournamentConverter:
                         PRIZE_POOL_SLOT_OPPONENT_SUB(rf"\1{specific_string}", opp_text) for opp_text in opp_texts
                     ]
 
-                self.info += f'<div class="warning">⚠️ {warning_info} Merged slots with common place {slot_place}</div>'
+                self.info += (
+                    f'<div class="warning">⚠️ {warning_info} Merged slots with common place {slot_place}</div>'
+                )
 
             slot_opp_count = len(slot_opp_texts)
 
@@ -1679,9 +1683,7 @@ class TournamentConverter:
                     self.match_maps_prev_bestof = bestof
         if match.bestof is not None:
             if bestof != match.bestof:
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
-                )
+                self.info += f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
         else:
             # By default, bestof is the same as previously
             match.bestof = bestof or self.match_maps_prev_bestof
@@ -1777,9 +1779,7 @@ class TournamentConverter:
                         self.match_maps_prev_bestof = bestof
         if match.bestof is not None:
             if bestof != match.bestof:
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
-                )
+                self.info += f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
         else:
             # By default, bestof is the same as previously
             match.bestof = bestof or self.match_maps_prev_bestof
@@ -3083,9 +3083,7 @@ class TournamentConverter:
                 else:
                     computed_diff = win_g_int - lose_g_int
                     if computed_diff != diff_int:
-                        self.info += (
-                            f'<div class="warning">⚠️ Diff value ({diff_int}) != win_g - lose_g ({computed_diff})</div>'
-                        )
+                        self.info += f'<div class="warning">⚠️ Diff value ({diff_int}) != win_g - lose_g ({computed_diff})</div>'
         if bg := args.get("bg"):
             results_text += f"|bg{n}={bg}"
             unaliased_bg = BG_ALIASES.get(bg, bg)
