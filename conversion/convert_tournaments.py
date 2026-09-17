@@ -859,6 +859,8 @@ class TournamentConverter:
             result += "|count=1"
         if enable_section_count:
             result += "|showCountBySection=1"
+        if self.options["participant_table_add_nostorage"]:
+            result += "|noStorage=1"
         result += "\n"
         for section in sections:
             if not section.participants:

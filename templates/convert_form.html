@@ -105,6 +105,10 @@
             <input type="checkbox" name="participant_table_convert_first_to_qualified_prize_pool_table" id="participant_table_convert_first_to_qualified_prize_pool_table" {% if options['participant_table_convert_first_to_qualified_prize_pool_table'] %}checked{% endif %}/>
             <label for="participant_table_convert_first_to_qualified_prize_pool_table">Convert first participant table to a "Qualified" prize pool table</label>
           </div>
+          <div>
+            <input type="checkbox" name="participant_table_add_nostorage" id="participant_table_add_nostorage" {% if options['participant_table_add_nostorage'] %}checked{% endif %}/>
+            <label for="participant_table_add_nostorage">Add <code>noStorage=1</code> to participant tables</label>
+          </div>
         </fieldset>
 
         <fieldset>
