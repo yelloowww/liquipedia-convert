@@ -1,6 +1,6 @@
 # Dict values are default values
 BOOL_OPTIONS = {
-    "ignore_cache": False,
+    "ignore_cache": True,
     "prize_pool_table_do_not_convert": False,
     "prize_pool_opponent_details": False,
     "prize_pool_opponent_last_results": False,

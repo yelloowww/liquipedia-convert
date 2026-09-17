@@ -789,7 +789,10 @@ class TournamentConverter:
         for section in sections:
             self.add_participants(section.participants)
         if table.comments:
-            self.info += '<div class="warning">⚠️ Comments in participant table may be lost</div>'
+            self.info += (
+                '<div class="warning">⚠️ Comments in participant table'
+                f' #{self.participant_tables_processed} may be lost</div>'
+            )
 
         # Set the notes property for players with asterisks
         if players_with_asterisk:
