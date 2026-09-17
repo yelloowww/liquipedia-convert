@@ -75,7 +75,7 @@ PRIZE_POOL_SLOT_OPPONENT_SUB = rc(r"(\{\{(?:Archon)?Opponent)(?=\|)").sub
 GROUP_TABLE_TITLE_WIDTH_SUB = rc(r"(\|title=[^\|]+)\n(\|width=\d+)").sub
 GROUP_TABLE_SINGLE_PBG_SUB = rc(r"(\|pbg\d+=[^\|]+)\n(\|)").sub
 TEAM_TEMPLATE_SUB = rc(r"\{\{Team(?:2|Short|Icon|Part)?\|[^\}]*\}\}").sub
-SIMPLE_TEMPLATE_SUB = rc("\{\{[^\}]+\}\}").sub
+SIMPLE_TEMPLATE_SUB = rc(r"\{\{[^\}]+\}\}").sub
 SHORT_RACES = ("p", "t", "z", "r")
 POINTS_SEED = {"tsl3": ("2011 Pokerstrategy.com TSL3", "TSL 3")}
 BG_ALIASES = {"proceed": "up", "drop": "down"}
