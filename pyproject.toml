@@ -3,7 +3,7 @@ name = "liquipedia-convert"
 version = "0.1.0"
 description = "Converter of Liquipedia tournament pages"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "bottle>=0.13.1",
     "gevent>=24.2.1",
