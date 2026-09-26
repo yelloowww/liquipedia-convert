@@ -8,7 +8,7 @@ BOOL_OPTIONS = {
     "player_details": True,
     "team_details": True,
     "participant_table_convert_first_to_qualified_prize_pool_table": False,
-    "participant_table_add_nostorage": True,
+    "participant_table_add_nostorage": False,
     "group_table_set_pbg_from_bg": True,
     "bracket_do_not_convert_details": False,
     "bracket_identify_by_arg_1": False,
