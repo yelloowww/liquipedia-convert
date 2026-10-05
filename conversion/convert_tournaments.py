@@ -1089,6 +1089,10 @@ class TournamentConverter:
                             self.warn(f"{warning_info}[opp={i}] wofrom AND last score both defined")
                         text += f"|lastvsscore=W-L"
                     elif opp.lastscore and opp.lastvsscore:
+                        if not is_valid_score_string(opp.lastscore):
+                            self.warn(f"{warning_info}[opp={i}] lastscore{i}={opp.lastscore} is not a valid score")
+                        if not is_valid_score_string(opp.lastvsscore):
+                            self.warn(f"{warning_info}[opp={i}] lastvsscore{i}={opp.lastvsscore} is not a valid score")
                         text += f"|lastvsscore={opp.lastscore}-{opp.lastvsscore}"
                     elif opp.lastscore or opp.lastvsscore:
                         self.warn(f"{warning_info}[opp={i}] last score is partially defined")
@@ -3754,6 +3758,10 @@ def filter_template_args(tpl: wtp.Template, pattern: re.Pattern):
     for x in tpl.arguments:
         if m := pattern.match(x.name.strip()):
             yield (x, m)
+
+
+def is_valid_score_string(s: str) -> bool:
+    return s.isdigit() or s in VALID_ALPHABETICAL_SCORES
 
 
 if __name__ == "__main__":

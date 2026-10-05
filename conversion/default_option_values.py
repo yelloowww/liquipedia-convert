@@ -2,8 +2,8 @@
 BOOL_OPTIONS = {
     "ignore_cache": True,
     "prize_pool_table_do_not_convert": False,
-    "prize_pool_opponent_details": False,
-    "prize_pool_opponent_last_results": False,
+    "prize_pool_opponent_details": True,
+    "prize_pool_opponent_last_results": True,
     "participant_table_do_not_convert_any": False,
     "player_details": True,
     "team_details": True,
