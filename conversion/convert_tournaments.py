@@ -250,9 +250,10 @@ class TournamentConverter:
             converted = f"{converted[:start]}{new_text}{converted[end:]}"
 
         if self.not_converted_arguments:
-            self.info += f'<div class="warning">⚠️ Arguments not converted: {len(self.not_converted_arguments)} '
-            self.info += str(sorted(self.not_converted_arguments))
-            self.info += "</div>"
+            self.warn(
+                f"Arguments not converted: {len(self.not_converted_arguments)} "
+                + str(sorted(self.not_converted_arguments))
+            )
 
         # Create a summary
         if self.counter:
@@ -324,10 +325,7 @@ class TournamentConverter:
                 self.match_maps_prev_bestof = None
                 if (x := tpl.get_arg("vod")) and (vod := clean_arg_value(x)):
                     self.match_list_vod = vod
-                    self.info += (
-                        f'<div class="warning">⚠️ vod in Match list start {self.match_list_id}'
-                        " moved to the first match of the list</div>"
-                    )
+                    self.warn(f"vod in Match list start {self.match_list_id} moved to the first match of the list")
                 else:
                     self.match_list_vod = None
                 if name == "LegacyMatchList":
@@ -337,17 +335,14 @@ class TournamentConverter:
                     for x, m in match_args:
                         index = int(m[1])
                         if int(m[1]) != last_index + 1:
-                            self.info += (
-                                f'<div class="warning">⚠️ Unexpected index ({index} after {last_index})'
-                                f" in matchlist {self.match_list_id}</div>"
+                            self.warn(
+                                f"Unexpected index ({index} after {last_index}) in matchlist {self.match_list_id}"
                             )
                         last_index = index
                     # Process the matchX arguments
                     for x, m in sorted(match_args, key=lambda t: int(t[1][1])):
                         if not x.templates:
-                            self.info += (
-                                f'<div class="warning">⚠️ Empty {m[0]} in matchlist {self.match_list_id}</div>'
-                            )
+                            self.warn(f"Empty {m[0]} in matchlist {self.match_list_id}")
                         else:
                             sub_tpl = x.templates[0]
                             self.pass2_for_template(sub_tpl)
@@ -355,7 +350,7 @@ class TournamentConverter:
                     self.close_match_list(tpl)
             case "Match maps" | "MatchMaps/Legacy":
                 if self.match_list_id is None:
-                    self.info += '<div class="warning">⚠️ Match maps found out of a matchlist</div>'
+                    self.warn("Match maps found out of a matchlist")
                 if mm_result := self.convert_match_maps(tpl):
                     mm_result.header = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
                     self.match_list_matches.append(mm_result)
@@ -364,13 +359,11 @@ class TournamentConverter:
                     mmt_result.header = "\n" if self.text[tpl.span[0] - 2 : tpl.span[0]] == "\n\n" else ""
                     self.match_list_matches.append(mmt_result)
             case "Match list comment":
-                self.info += (
-                    f'<div class="warning">⚠️ [Matchlist {self.match_list_id}] Match list comment may be lost</div>'
-                )
+                self.warn(f" Match list comment may be lost", "Matchlist", self.match_list_id)
                 self.match_list_comments.append(clean_arg_value(tpl.get_arg("1")))
             case "Match list end":
                 if self.match_list_id is None:
-                    self.info += f'<div class="warning">⚠️ Match list end without a start</div>'
+                    self.warn("Match list end without a start")
                 else:
                     self.close_match_list(tpl)
 
@@ -392,7 +385,10 @@ class TournamentConverter:
                     self.add_participant_from_player_template(tpl)
             case "ParticipantTable" | "ParticipantSection":
                 participants = self.add_participants_from_participant_table(tpl)
-                if (self.options["participant_table_convert_first_to_qualified_prize_pool_table"] and self.participant_tables_processed == 0):
+                if (
+                    self.options["participant_table_convert_first_to_qualified_prize_pool_table"]
+                    and self.participant_tables_processed == 0
+                ):
                     prize_pool_table = self.prize_pool_table_from_sections([Section("", participants)])
                     self.changes.append((*tpl.span, prize_pool_table))
                     self.participant_tables_processed += 1
@@ -432,10 +428,7 @@ class TournamentConverter:
         if len(self.match_list_matches) > 1 and not self.match_list_matches[0].bestof_is_set:
             for i, match in enumerate(self.match_list_matches[1:], start=2):
                 if match.bestof_is_set:
-                    self.info += (
-                        f'<div class="warning">⚠️ [Matchlist {self.match_list_id}]'
-                        f" Move |bestof={match.bestof} from M{i} to M1</div>"
-                    )
+                    self.warn(f" Move |bestof={match.bestof} from M{i} to M1", "Matchlist", self.match_list_id)
                     self.match_list_matches[0].bestof = match.bestof
                     match.bestof_is_set = False
                     self.match_list_matches[0].bestof_is_set = True
@@ -448,7 +441,7 @@ class TournamentConverter:
         if self.match_list_comments:
             self.match_list_text += "\n" + " ".join(self.match_list_comments)
         if self.match_list_vod:
-            self.info += '<div class="warning">⚠️ ... No match to move the VOD to</div>'
+            self.warn("... No match to move the VOD to")
         self.changes.append((self.match_list_start_pos, match_list_end_pos, self.match_list_text))
         self.counter["Legacy Match list"] += 1
         self.match_list_id = None
@@ -789,14 +782,11 @@ class TournamentConverter:
         for section in sections:
             self.add_participants(section.participants)
         if table.comments:
-            self.info += (
-                '<div class="warning">⚠️ Comments in participant table'
-                f' #{self.participant_tables_processed} may be lost</div>'
-            )
+            self.warn(f"Comments in participant table #{self.participant_tables_processed} may be lost")
 
         # Set the notes property for players with asterisks
         if players_with_asterisk:
-            self.info += '<div class="warning">⚠️ Asterisks converted to notes in participant table</div>'
+            self.warn("Asterisks converted to notes in participant table")
             # Find the note number of each asterisk count
             asterisk_note_numbers = {}
             for asterisk_count in sorted(set(players_with_asterisk.values())):
@@ -810,7 +800,7 @@ class TournamentConverter:
                 self.participants_by_link[link].notes.append(str(asterisk_note_numbers[asterisk_count]))
         # Set the notes property for players with refs
         if players_with_ref:
-            self.info += '<div class="warning">⚠️ Refs converted to notes in participant table</div>'
+            self.warn("Refs converted to notes in participant table")
             # Find the note number of each ref
             ref_note_numbers = {}
             for n, ref_name in enumerate(refs.keys(), start=1):
@@ -865,14 +855,14 @@ class TournamentConverter:
         for section in sections:
             if not section.participants:
                 if section.title:
-                    self.info += f'<div class="warning">⚠️ Titled section without players in participant table</div>'
+                    self.warn(f"Titled section without players in participant table")
                 else:
                     continue
 
             use_participant_section_template = bool(section.title)
             if len(sections) > 1 and not use_participant_section_template:
                 use_participant_section_template = True
-                self.info += f'<div class="warning">⚠️ Title needed for untitled section in participant table</div>'
+                self.warn(f"Title needed for untitled section in participant table")
 
             if use_participant_section_template:
                 result += f"|{{{{ParticipantSection|title={section.title}\n"
@@ -1090,20 +1080,18 @@ class TournamentConverter:
                     text += "}}"
                     if opp.woto:
                         if opp.lastscore or opp.lastvsscore:
-                            self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] woto AND last score both defined</div>'
+                            self.warn(f"{warning_info}[opp={i}] woto AND last score both defined")
                         text += f"|lastvsscore=L-W"
                     elif opp.wofrom:
                         if opp.lastscore or opp.lastvsscore:
-                            self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] wofrom AND last score both defined</div>'
+                            self.warn(f"{warning_info}[opp={i}] wofrom AND last score both defined")
                         text += f"|lastvsscore=W-L"
                     elif opp.lastscore and opp.lastvsscore:
                         text += f"|lastvsscore={opp.lastscore}-{opp.lastvsscore}"
                     elif opp.lastscore or opp.lastvsscore:
-                        self.info += (
-                            f'<div class="warning">⚠️ {warning_info}[opp={i}] last score is partially defined</div>'
-                        )
+                        self.warn(f"{warning_info}[opp={i}] last score is partially defined")
                 elif opp.woto or opp.wofrom or opp.lastscore or opp.lastvsscore:
-                    self.info += f'<div class="warning">⚠️ {warning_info}[opp={i}] last score is defined but not the opponent</div>'
+                    self.warn(f"{warning_info}[opp={i}] last score is defined but not the opponent")
                 if opp.usdprize:
                     text += f"|usdprize={opp.usdprize}"
                 if opp.localprize and (
@@ -1153,10 +1141,7 @@ class TournamentConverter:
         if points_name == "seed":
             if val in ("0", "-"):
                 return None
-            self.info += (
-                f'<div class="warning">⚠️ [{self.prize_pool_type} prize pool] Raw value'
-                f" in 'seed' column ({val})</div>"
-            )
+            self.warn(f"[{self.prize_pool_type} prize pool] Raw value in 'seed' column ({val})")
             if "Seed" in self.prize_pool_freetext:
                 freetext_index = self.prize_pool_freetext.index("Seed") + 1
             else:
@@ -1183,9 +1168,7 @@ class TournamentConverter:
         if points_name in ("pcnt", "percent"):
             return f"|percentage={val.removesuffix('%').rstrip()}"
         if PRIZE_POOL_NUMERIC_POINT_PATTERN.match(val) is None:
-            self.info += (
-                f'<div class="warning">⚠️ [{self.prize_pool_type} prize pool] Non-numeric point value ({val})</div>'
-            )
+            self.warn(f"[{self.prize_pool_type} prize pool] Non-numeric point value ({val})")
 
         if i is not None:
             # The points are used with their original intent
@@ -1243,9 +1226,7 @@ class TournamentConverter:
                         PRIZE_POOL_SLOT_OPPONENT_SUB(rf"\1{specific_string}", opp_text) for opp_text in opp_texts
                     ]
 
-                self.info += (
-                    f'<div class="warning">⚠️ {warning_info} Merged slots with common place {slot_place}</div>'
-                )
+                self.warn(f"{warning_info} Merged slots with common place {slot_place}")
 
             slot_opp_count = len(slot_opp_texts)
 
@@ -1263,7 +1244,7 @@ class TournamentConverter:
             )
             if check_count and slot_expected_opp_count != 256 and slot_opp_count != slot_expected_opp_count:
                 word = "More" if slot_opp_count > slot_expected_opp_count else "Fewer"
-                self.info += f'<div class="warning">⚠️ {warning_info} {word} opponents than the slot capacity</div>'
+                self.warn(f"{warning_info} {word} opponents than the slot capacity")
 
             prize_pool_slot_texts.append("|{{Slot" + "".join(slot_texts) + "}}")
 
@@ -1549,7 +1530,7 @@ class TournamentConverter:
 
         info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_list_matches) + 1}]"
         if tpl.comments:
-            self.info += f'<div class="warning">⚠️ {info_id_text} Comments will be lost</div>'
+            self.warn(f"{info_id_text} Comments will be lost")
 
         # Parse maps first
         map_texts = []
@@ -1575,10 +1556,7 @@ class TournamentConverter:
             if map_winner == "draw":
                 map_winner = "0"
             elif map_winner and map_winner not in ("0", "1", "2", "skip"):
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} Map {i} winner is {map_winner}'
-                    " (expected 0, 1, 2, skip or draw)</div>"
-                )
+                self.warn(f"{info_id_text} Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)")
 
             map_text = f"|map{i}={{{{Map"
             map_map_text = f"|map={map_}"
@@ -1674,10 +1652,9 @@ class TournamentConverter:
                     except ValueError:
                         pass
                     if map_texts and num_scores[i - 1] and map_scores[i - 1] != num_scores[i - 1]:
-                        self.info += (
-                            f'<div class="warning">⚠️ {info_id_text} Discrepancy between'
-                            f" map score {map_scores[i - 1]}"
-                            f" and score {scores[i - 1]} ({player.name})</div>"
+                        self.warn(
+                            f"{info_id_text} Discrepancy between map score {map_scores[i - 1]}"
+                            f" and score {scores[i - 1]} ({player.name})"
                         )
                 elif not map_texts and not is_walkover_set:
                     text += f"|score="
@@ -1698,9 +1675,7 @@ class TournamentConverter:
             try:
                 bestof = int(bestof)
             except ValueError:
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} Existing bestof is not a decimal integer value</div>'
-                )
+                self.warn(f"{info_id_text} Existing bestof is not a decimal integer value")
             else:
                 match.bestof = bestof
                 match.bestof_is_set = True
@@ -1709,23 +1684,17 @@ class TournamentConverter:
         bestof = None
         if self.options["match_maps_guess_bestof"] and not is_walkover and None not in num_scores:
             if num_scores[0] == num_scores[1]:
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} bestof cannot be guessed'
-                    f" for score {'-'.join(str(n) for n in num_scores)}</div>"
-                )
+                self.warn(f"{info_id_text} bestof cannot be guessed for score {'-'.join(str(n) for n in num_scores)}")
             else:
                 bestof = max(num_scores) * 2 - 1
                 if bestof != self.match_maps_prev_bestof:
                     match.bestof_is_set = True
                     if self.match_maps_prev_bestof is not None:
-                        self.info += (
-                            f'<div class="warning">⚠️ {info_id_text} Change of bestof'
-                            f" from {self.match_maps_prev_bestof} to {bestof}</div>"
-                        )
+                        self.warn(f"{info_id_text} Change of bestof from {self.match_maps_prev_bestof} to {bestof}")
                     self.match_maps_prev_bestof = bestof
         if match.bestof is not None:
             if bestof != match.bestof:
-                self.info += f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
+                self.warn(f"{info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")
         else:
             # By default, bestof is the same as previously
             match.bestof = bestof or self.match_maps_prev_bestof
@@ -1739,9 +1708,7 @@ class TournamentConverter:
             if winner in ("1", "2"):
                 w = int(winner) - 1
                 if num_scores[w] < num_scores[1 - w]:
-                    self.info += (
-                        f'<div class="warning">⚠️ {info_id_text} bestof={match.bestof} => different winner</div>'
-                    )
+                    self.warn(f"{info_id_text} bestof={match.bestof} => different winner")
                 ignore_list.append("winner")
         for i in vodgames_moved_to_map:
             ignore_list.append(f"vodgame{i}")
@@ -1776,7 +1743,7 @@ class TournamentConverter:
 
         info_id_text = f"[Matchlist {self.match_list_id}][M{len(self.match_list_matches) + 1}]"
         if tpl.comments:
-            self.info += f'<div class="warning">⚠️ {info_id_text} Comments will be lost</div>'
+            self.warn("{info_id_text} Comments will be lost")
 
         for i in range(1, 3):
             if x := tpl.get_arg(f"team{i}"):
@@ -1789,9 +1756,7 @@ class TournamentConverter:
             try:
                 bestof = int(bestof)
             except ValueError:
-                self.info += (
-                    f'<div class="warning">⚠️ {info_id_text} Existing bestof is not a decimal integer value</div>'
-                )
+                self.warn(f"{info_id_text} Existing bestof is not a decimal integer value")
             else:
                 match.bestof = bestof
                 match.bestof_is_set = True
@@ -1805,23 +1770,19 @@ class TournamentConverter:
                 pass
             else:
                 if num_scores[0] == num_scores[1]:
-                    self.info += (
-                        f'<div class="warning">⚠️ {info_id_text} bestof cannot be guessed'
-                        f" for score {'-'.join(scores)}</div>"
-                    )
+                    self.warn(f"{info_id_text} bestof cannot be guessed for score {'-'.join(scores)}")
                 else:
                     bestof = max(num_scores) * 2 - 1
                     if bestof != self.match_maps_prev_bestof:
                         match.bestof_is_set = True
                         if self.match_maps_prev_bestof is not None:
-                            self.info += (
-                                f'<div class="warning">⚠️ {info_id_text} Change of bestof'
-                                f" from {self.match_maps_prev_bestof} to {bestof}</div>"
+                            self.warn(
+                                f"{info_id_text} Change of bestof' from {self.match_maps_prev_bestof} to {bestof}"
                             )
                         self.match_maps_prev_bestof = bestof
         if match.bestof is not None:
             if bestof != match.bestof:
-                self.info += f'<div class="warning">⚠️ {info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")'
+                self.warn(f"{info_id_text} Guessed bestof ({bestof}) != arg bestof ({match.bestof})")
         else:
             # By default, bestof is the same as previously
             match.bestof = bestof or self.match_maps_prev_bestof
@@ -1865,21 +1826,21 @@ class TournamentConverter:
         id_ = clean_arg_value(tpl.get_arg("id"))
 
         if not bracket_name or not legacy_bracket_name:
-            self.warn("Bracket", id_, " Empty argument 1 or 2")
+            self.warn(" Empty argument 1 or 2", "Bracket", id_)
             return None
 
         if legacy_bracket_name in BRACKET_NEW_NAMES and bracket_name != BRACKET_NEW_NAMES[legacy_bracket_name]:
-            self.warn("Bracket", id_, f" Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}")
+            self.warn(f" Mismatch between {bracket_name} and legacy bracket {legacy_bracket_name}", "Bracket", id_)
 
         if self.options["bracket_identify_by_arg_1"]:
             if bracket_name in BRACKET_LEGACY_NAMES:
                 legacy_bracket_name = BRACKET_LEGACY_NAMES[bracket_name]
             else:
-                self.warn("Bracket", id_, f" Bracket {bracket_name} unknown")
+                self.warn(f" Bracket {bracket_name} unknown", "Bracket", id_)
                 return None
 
         if legacy_bracket_name not in BRACKETS:
-            self.warn("Bracket", id_, f' Bracket "{legacy_bracket_name}" unknown')
+            self.warn(f' Bracket "{legacy_bracket_name}" unknown', "Bracket", id_)
             return None
 
         conversion = BRACKETS[legacy_bracket_name]
@@ -1908,7 +1869,7 @@ class TournamentConverter:
             ) and m.group(1) not in LEGACY_PLAYER_AND_GAME_PREFIXES[legacy_bracket_name]:
                 unknown_args.append(arg_name)
         if unknown_args:
-            self.warn("Bracket", id_, f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}")
+            self.warn(f" Argument(s) unknown ({len(unknown_args)}): {', '.join(unknown_args)}", "Bracket", id_)
 
         # Used for start-of-round breaks
         prev_arguments = {x2.name.strip(): x1 for x1, x2 in zip(tpl.arguments, tpl.arguments[1:])}
@@ -1963,16 +1924,16 @@ class TournamentConverter:
                 summary_tpl = x.templates[0]
                 for other_tpl in x.templates[1:]:
                     if other_tpl.span[0] > summary_tpl.span[1]:
-                        self.warn("Bracket", id_, f" Multiple templates in {game_prefix}details")
+                        self.warn(f" Multiple templates in {game_prefix}details", "Bracket", id_)
                         break
                 if summary_tpl.normal_name(capitalize=True) != "BracketMatchSummary":
-                    self.warn("Bracket", id_, f" Template in {game_prefix}details is not BracketMatchSummary")
+                    self.warn(f" Template in {game_prefix}details is not BracketMatchSummary", "Bracket", id_)
                 summary_texts, summary_end_texts = self.arguments_to_texts(
                     BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
                 )
 
                 if any(ADVANTAGE_HINT_PATTERN.search(s) for t in (summary_texts, summary_end_texts) for s in t):
-                    self.warn("Bracket", id_, f" Possible advantage in {game_prefix}")
+                    self.warn(f" Possible advantage in {game_prefix}", "Bracket", id_)
 
                 vodgames_moved_to_map = []
                 empty_map_index = None
@@ -1994,7 +1955,7 @@ class TournamentConverter:
                     if map_winner == "draw":
                         map_winner = "0"
                     elif map_winner and map_winner not in ("0", "1", "2", "skip"):
-                        self.warn("Bracket", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)")
+                        self.warn(f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)", "Bracket", id_)
 
                     map_text = f"|map{i}={{{{Map"
                     map_map_text = f"|map={map_}"
@@ -2064,7 +2025,7 @@ class TournamentConverter:
                         bestof = int(bestof)
                     except ValueError:
                         # If the value is not an integer, then ignore it
-                        self.warn("Bracket", id_, f"[{match_id}] Existing bestof is not a decimal integer value")
+                        self.warn(f"[{match_id}] Existing bestof is not a decimal integer value", "Bracket", id_)
                     else:
                         match.bestof = bestof
                         match.bestof_is_set = True
@@ -2098,17 +2059,17 @@ class TournamentConverter:
                     scores2[i - 1] = clean_arg_value(x)
                     if match_index != len(conversion):
                         self.warn(
+                            f"[{match_id}] score2 for this match may not be supported correctly in this bracket",
                             "Bracket",
                             id_,
-                            f"[{match_id}] score2 for this match may not be supported correctly in this bracket",
                         )
                 if x := tpl.get_arg(f"{prefix}score3"):
                     scores3[i - 1] = clean_arg_value(x)
                     if match_index != len(conversion):
                         self.warn(
+                            f"[{match_id}] score3 for this match may not be supported correctly in this bracket",
                             "Bracket",
                             id_,
-                            f"[{match_id}] score3 for this match may not be supported correctly in this bracket",
                         )
                 if x := tpl.get_arg(f"{prefix}win"):
                     wins[i - 1] = clean_arg_value(x)
@@ -2144,11 +2105,11 @@ class TournamentConverter:
                             pass
                         if map_texts and num_scores[i - 1] and map_scores[i - 1] + advantage != num_scores[i - 1]:
                             self.warn(
-                                "Bracket",
-                                id_,
                                 f"[{match_id}] Discrepancy between"
                                 f" map score {map_scores[i - 1] + advantage}"
                                 f" and score {scores[i - 1]} ({player.name})",
+                                "Bracket",
+                                id_,
                             )
                     elif not map_texts and not is_walkover_set:
                         text += f"|score="
@@ -2163,7 +2124,7 @@ class TournamentConverter:
                     text += "}}"
                     text_reset += "}}"
                     if comments:
-                        self.warn("Bracket", id_, f"[{match_id}] Comments moved to the end of the line")
+                        self.warn(f"[{match_id}] Comments moved to the end of the line", "Bracket", id_)
                         text += f" {comments}"
 
                     player_texts.append(text)
@@ -2194,7 +2155,7 @@ class TournamentConverter:
                 if num_scores[0] == num_scores[1]:
                     if match_id != "RxMTP":
                         self.warn(
-                            "Bracket", id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}"
+                            f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}", "Bracket", id_
                         )
                 else:
                     # We can compute bestof
@@ -2205,10 +2166,10 @@ class TournamentConverter:
                         if bestof_moves[-1].source is None:
                             bestof_moves[-1].source = match_id
                         if not is_new_round:
-                            self.warn("Bracket", id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}")
+                            self.warn(f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}", "Bracket", id_)
             if match.bestof is not None:
                 if bestof != match.bestof:
-                    self.warn("Bracket", id_, f"[{match_id}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})")
+                    self.warn(f"[{match_id}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})", "Bracket", id_)
             else:
                 # By default, bestof is the same as previously
                 match.bestof = bestof or prev_bestof
@@ -2216,22 +2177,22 @@ class TournamentConverter:
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.warn("Bracket", id_, f"[{match_id}] {player_prefixes[0]}win={wins[0]}")
+                        self.warn(f"[{match_id}] {player_prefixes[0]}win={wins[0]}", "Bracket", id_)
                     if players[1].name == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is not None:
                         if scores[0] < scores[1]:
-                            self.warn("Bracket", id_, f"[{match_id}] bestof={bestof} => different winner")
+                            self.warn(f"[{match_id}] bestof={bestof} => different winner", "Bracket", id_)
                     else:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.warn("Bracket", id_, f"[{match_id}] {player_prefixes[1]}win={wins[1]}")
+                        self.warn(f"[{match_id}] {player_prefixes[1]}win={wins[1]}", "Bracket", id_)
                     if players[0].name == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is not None:
                         if scores[0] > scores[1]:
-                            self.warn("Bracket", id_, f"[{match_id}] bestof={bestof} => different winner")
+                            self.warn(f"[{match_id}] bestof={bestof} => different winner", "Bracket", id_)
                     else:
                         match_texts1.append("|winner=2")
                 else:
@@ -2267,7 +2228,7 @@ class TournamentConverter:
 
         # If all bestof are the same, keep only the first one
         if len(bestof_sets) > 1 and len(set(bestof_sets.values())) == 1:
-            self.warn("Bracket", id_, " Keep only the first |bestof=")
+            self.warn(" Keep only the first |bestof=", "Bracket", id_)
             for i, match_id in enumerate(bestof_sets):
                 if i > 0:
                     bracket_matches[match_id].bestof_is_set = False
@@ -2280,7 +2241,7 @@ class TournamentConverter:
                 and bracket_matches[move.source].bestof_is_set
             ):
                 bestof = bracket_matches[move.source].bestof
-                self.warn("Bracket", id_, f" Move |bestof={bestof} from {move.source} to {move.destination}")
+                self.warn(f" Move |bestof={bestof} from {move.source} to {move.destination}", "Bracket", id_)
                 bracket_matches[move.destination].bestof = bestof
                 bracket_matches[move.source].bestof_is_set = False
                 bracket_matches[move.destination].bestof_is_set = True
@@ -2290,7 +2251,7 @@ class TournamentConverter:
         ]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.warn("Bracket", id_, " noDuplicateCheck used")
+            self.warn(" noDuplicateCheck used", "Bracket", id_)
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -2375,7 +2336,7 @@ class TournamentConverter:
                 else:
                     if num_scores[0] == num_scores[1]:
                         self.warn(
-                            "Bracket", id_, f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n"
+                            f"[{match_id}] bestof cannot be guessed for score {'-'.join(scores)}\n", "Bracket", id_
                         )
                     else:
                         # We can compute bestof
@@ -2384,7 +2345,7 @@ class TournamentConverter:
                             match.bestof_is_set = True
                             if not is_new_round:
                                 self.warn(
-                                    "Bracket", id_, f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}"
+                                    f"[{match_id}] Change of bestof from {prev_bestof} to {bestof}", "Bracket", id_
                                 )
             # By default, bestof is the same as previously
             match.bestof = bestof or prev_bestof
@@ -2392,14 +2353,14 @@ class TournamentConverter:
             if "W" not in scores:
                 if wins[0] and not wins[1]:
                     if wins[0] != "1":
-                        self.warn("Bracket", id_, f"[{match_id}] {team_prefixes[0]}win={wins[0]}")
+                        self.warn(f"[{match_id}] {team_prefixes[0]}win={wins[0]}", "Bracket", id_)
                     if teams[1] == "BYE" and scores[1] == "":
                         match_texts1.append("|walkover=1")
                     elif bestof is None:
                         match_texts1.append("|winner=1")
                 elif wins[1] and not wins[0]:
                     if wins[1] != "1":
-                        self.warn("Bracket", id_, f"[{match_id}] {team_prefixes[1]}win={wins[1]}")
+                        self.warn(f"[{match_id}] {team_prefixes[1]}win={wins[1]}", "Bracket", id_)
                     if teams[0] == "BYE" and scores[0] == "":
                         match_texts1.append("|walkover=2")
                     elif bestof is None:
@@ -2516,7 +2477,7 @@ class TournamentConverter:
         bracket_texts += [f"|{match_id}={match.string()}" for match_id, match in bracket_matches.items()]
 
         if clean_arg_value(tpl.get_arg("noDuplicateCheck")):
-            self.warn("Bracket", id_, " noDuplicateCheck used")
+            self.warn(" noDuplicateCheck used", "Bracket", id_)
 
         result = f"{{{{Bracket|{bracket_name}|id={id_}"
         if self.options["bracket_match_width"]:
@@ -2526,19 +2487,20 @@ class TournamentConverter:
         result += "\n" + "\n".join(bracket_texts) + "\n}}"
         return result
 
-    def warn(self, type_: str, id_: str, text: str) -> None:
+    def warn(self, text: str, type_: str | None = None, id_: str | None = None) -> None:
         self.info += '<div class="warning">⚠️ '
-        if id_ != self.warning_last_id:
-            self.info += f"[{type_} {id_}]"
-            self.warning_last_id = id_
-        else:
-            self.info += "    "
+        if type_ and id_:
+            if id_ != self.warning_last_id:
+                self.info += f"[{type_} {id_}]"
+                self.warning_last_id = id_
+            else:
+                self.info += "    "
         self.info += f"{text}</div>"
 
     def look_for_player(self, player: MatchPlayer) -> tuple[bool, bool]:
         if player.name not in self.participants_by_name:
             if player.name.endswith("*"):
-                self.info += f'<div class="warning">⚠️ Asterisk in player name {player.name}</div>'
+                self.warn(f"Asterisk in player name {player.name}")
             # found, is_offrace
             return False, False
 
@@ -2549,10 +2511,7 @@ class TournamentConverter:
             flag = COUNTRIES.get(flag, flag)
             if flag != (p_flag := participant.clean_flag):
                 if p_flag:
-                    self.info += (
-                        f'<div class="warning">⚠️ {participant.name} found'
-                        f" in participants with flag '{p_flag}' != '{flag}'</div>"
-                    )
+                    self.warn(f"{participant.name} found in participants" f" with flag '{p_flag}' != '{flag}'")
                 return False, False
 
         if player.race:
@@ -2572,7 +2531,7 @@ class TournamentConverter:
         player_link = clean_link(player.link or player.name)
         if player_link not in self.participants_by_link:
             if player_link.endswith("*"):
-                self.info += f'<div class="warning">⚠️ Asterisk in player.link {player.link}</div>'
+                self.warn(f"Asterisk in player.link {player.link}")
             # found, is_offrace
             return False, False
 
@@ -2583,10 +2542,7 @@ class TournamentConverter:
             flag = COUNTRIES.get(flag, flag)
             if participant.clean_flag and flag != (p_flag := participant.clean_flag):
                 if p_flag:
-                    self.info += (
-                        f'<div class="warning">⚠️ {participant.name} found'
-                        f" in participants with flag '{p_flag}' != '{flag}'</div>"
-                    )
+                    self.warn(f"{participant.name} found in participants with flag '{p_flag}' != '{flag}'")
                 return False, False
 
         if player.race:
@@ -2735,10 +2691,10 @@ class TournamentConverter:
                 summary_tpl = x.templates[0]
                 for other_tpl in x.templates[1:]:
                     if other_tpl.span[0] > summary_tpl.span[1]:
-                        self.warn("Cross table", id_, f" Multiple templates in {game_prefix}details")
+                        self.warn(f" Multiple templates in {game_prefix}details", "Cross table", id_)
                         break
                 if summary_tpl.normal_name(capitalize=True) != "BracketMatchSummary":
-                    self.warn("Cross table", id_, f" Template in {game_prefix}details is not BracketMatchSummary")
+                    self.warn(f" Template in {game_prefix}details is not BracketMatchSummary", "Cross table", id_)
                 summary_texts, summary_end_texts = self.arguments_to_texts(
                     BRACKET_MATCH_SUMMARY_ARGUMENTS, summary_tpl
                 )
@@ -2765,7 +2721,7 @@ class TournamentConverter:
                         map_winner = "0"
                     elif map_winner and map_winner not in ("0", "1", "2", "skip"):
                         self.warn(
-                            "Cross table", id_, f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)"
+                            f" Map {i} winner is {map_winner} (expected 0, 1, 2, skip or draw)", "Cross table", id_
                         )
 
                     map_text = f"|map{i}={{{{Map"
@@ -2836,7 +2792,9 @@ class TournamentConverter:
                         bestof = int(bestof)
                     except ValueError:
                         # If the value is not an integer, then ignore it
-                        self.warn("Cross table", f"[{game_prefix}] Existing bestof is not a decimal integer value")
+                        self.warn(
+                            f"[{game_prefix}] Existing bestof is not a decimal integer value", "Cross table", id_
+                        )
                     else:
                         match.bestof = bestof
                         match.bestof_is_set = True
@@ -2866,11 +2824,11 @@ class TournamentConverter:
                         pass
                     if map_texts and num_scores[i - 1] and map_scores[i - 1] != num_scores[i - 1]:
                         self.warn(
-                            "Cross table",
-                            id_,
                             f"[{game_prefix}] Discrepancy between"
                             f" map score {map_scores[i - 1]}"
                             f" and score {scores[i - 1]} ({participant.name})",
+                            "Cross table",
+                            id_,
                         )
                 elif not map_texts and not is_walkover_set:
                     text += f"|score="
@@ -2885,7 +2843,7 @@ class TournamentConverter:
             if self.options["bracket_guess_bestof"] and not is_walkover and None not in num_scores:
                 if num_scores[0] == num_scores[1]:
                     self.warn(
-                        "Cross table", id_, f"[{game_prefix}] bestof cannot be guessed for score {'-'.join(scores)}"
+                        f"[{game_prefix}] bestof cannot be guessed for score {'-'.join(scores)}", "Cross table", id_
                     )
                 else:
                     # We can compute bestof
@@ -2895,7 +2853,7 @@ class TournamentConverter:
             if match.bestof is not None:
                 if bestof != match.bestof:
                     self.warn(
-                        "Bracket", id_, f"[{game_prefix}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})"
+                        f"[{game_prefix}] Guessed bestof ({bestof}) != arg bestof ({match.bestof})", "Cross table", id_
                     )
             else:
                 # By default, bestof is the same as previously
@@ -2995,7 +2953,7 @@ class TournamentConverter:
             opponents.append(("Literal", text))
         # In case of error, add a "<missing opponent>"
         if len(opponents) == 0 or len(opponents) > 4:
-            self.info += f'<div class="warning">⚠️ No opponent or more than 4 opponents found in GroupTableSlot</div>'
+            self.warn("No opponent or more than 4 opponents found in GroupTableSlot")
             opponents.append(("Literal", "<missing opponent>"))
 
         if len(opponents) > 1:
@@ -3004,9 +2962,7 @@ class TournamentConverter:
                 # Merge single-player opponents in one opponent
                 opponents = [(len(opponents), sum((opp[1] for opp in opponents), []))]
             else:
-                self.info += (
-                    f'<div class="warning">⚠️ Multiple opponents of different types found in GroupTableSlot</div>'
-                )
+                self.warn("Multiple opponents of different types found in GroupTableSlot")
                 return
         # Generate opponent text
         type_, info = opponents[0]
@@ -3025,9 +2981,7 @@ class TournamentConverter:
             opponent_text = f"|{n}={{{{1Opponent|{player.name}"
             # found, offrace = self.look_for_player_by_link(player)
             # if not found:
-            #     self.info += (
-            #         f'<div class="warning">⚠️ Player data from GroupTableSlot ({player.name}) will disappear</div>'
-            #     )
+            #     self.warn(f"Player data from GroupTableSlot ({player.name}) will disappear")
             #     if player.link:
             #         opponent_text += f"|link={player.link}"
             #     if player.flag:
@@ -3035,7 +2989,7 @@ class TournamentConverter:
             #     if player.race:
             #         opponent_text += f"|race={player.race}"
             # elif offrace:
-            #     self.info += f'<div class="warning">⚠️ Player offracing in GroupTableSlot ({player.name}), data will disappear</div>'
+            #     self.warn(f"Player offracing in GroupTableSlot ({player.name}), data will disappear")
             #     opponent_text += f"|race={player.race}"
             if player.link:
                 opponent_text += f"|link={player.link}"
@@ -3050,9 +3004,7 @@ class TournamentConverter:
                 opponent_text += f"|p{i}={player.name}"
                 found, offrace = self.look_for_player_by_link(player)
                 if not found:
-                    self.info += (
-                        f'<div class="warning">⚠️ Player data from GroupTableSlot ({player.name}) will disappear</div>'
-                    )
+                    self.warn(f"Player data from GroupTableSlot ({player.name}) will disappear")
                     if player.link:
                         opponent_text += f"|p{i}link={player.link}"
                     if player.flag:
@@ -3060,7 +3012,7 @@ class TournamentConverter:
                     if player.race:
                         opponent_text += f"|p{i}race={player.race}"
                 elif offrace:
-                    self.info += f'<div class="warning">⚠️ Player offracing in GroupTableSlot ({player.name}), data will disappear</div>'
+                    self.warn(f"Player offracing in GroupTableSlot ({player.name}), data will disappear")
                     opponent_text += f"|p{i}race={player.race}"
             opponent_text += "}}"
         if STRIKETHROUGH_PATTERN.search(text) is not None:
@@ -3079,7 +3031,7 @@ class TournamentConverter:
             try:
                 win_m_int = int(win_m)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical win_m value ({win_m})</div>'
+                self.warn(f"Non-numerical win_m value ({win_m})")
             else:
                 self.group_tbl_match_count += win_m_int
             results_text += f"|temp_win_m{n}={win_m}"
@@ -3087,7 +3039,7 @@ class TournamentConverter:
             try:
                 tie_m_int = int(tie_m)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical tie_m value ({tie_m})</div>'
+                self.warn(f"Non-numerical tie_m value ({tie_m})")
             else:
                 self.group_tbl_match_count += tie_m_int
             results_text += f"|temp_tie_m{n}={tie_m}"
@@ -3095,7 +3047,7 @@ class TournamentConverter:
             try:
                 lose_m_int = int(lose_m)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical lose_m value ({lose_m})</div>'
+                self.warn(f"Non-numerical lose_m value ({lose_m})")
             else:
                 self.group_tbl_match_count += lose_m_int
             results_text += f"|temp_lose_m{n}={lose_m}"
@@ -3103,29 +3055,29 @@ class TournamentConverter:
             try:
                 win_g_int = int(win_g)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical win_g value ({win_g})</div>'
+                self.warn(f"Non-numerical win_g value ({win_g})")
             self.group_tbl_show_games = True
             results_text += f"|temp_win_g{n}={win_g}"
         if lose_g := args.get("lose_g"):
             try:
                 lose_g_int = int(lose_g)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical lose_g value ({lose_g})</div>'
+                self.warn(f"Non-numerical lose_g value ({lose_g})")
             self.group_tbl_show_games = True
             results_text += f"|temp_lose_g{n}={lose_g}"
         if diff := args.get("diff"):
             try:
                 diff_int = int(diff)
             except ValueError:
-                self.info += f'<div class="warning">⚠️ Non-numerical diff value ({diff})</div>'
+                self.warn(f"Non-numerical diff value ({diff})")
             else:
                 self.group_tbl_show_diff = True
                 if win_g_int is None or lose_g_int is None:
-                    self.info += f'<div class="warning">⚠️ diff defined when win_g or lose_g is not defined</div>'
+                    self.warn("diff defined when win_g or lose_g is not defined")
                 else:
                     computed_diff = win_g_int - lose_g_int
                     if computed_diff != diff_int:
-                        self.info += f'<div class="warning">⚠️ Diff value ({diff_int}) != win_g - lose_g ({computed_diff})</div>'
+                        self.warn(f"Diff value ({diff_int}) != win_g - lose_g ({computed_diff})")
         if bg := args.get("bg"):
             results_text += f"|bg{n}={bg}"
             unaliased_bg = BG_ALIASES.get(bg, bg)
@@ -3213,7 +3165,7 @@ class TournamentConverter:
     def read_bool(self, val: str | bool | int) -> bool:
         is_true = val in ("true", "t", "yes", "y", True, "1", 1)
         if not is_true and val not in ("", "false", "f", "no", "n", False, "0", 0):
-            self.info += f'<div class="warning">⚠️ read_bool on a non-boolean value ({val})</div>'
+            self.warn(f"read_bool on a non-boolean value ({val})")
         return is_true
 
     def convert_very_old_team_matches(self):
