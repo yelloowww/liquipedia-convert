@@ -684,11 +684,13 @@ class TournamentConverter:
                     if x := tpl.get_arg("flag"):
                         p.flag = clean_arg_value(x)
                     if ((x := tpl.get_arg("race")) or (x := tpl.get_arg("faction"))) and (
-                        (race := clean_arg_value(x)) != "u" or not has_a_race_cell
+                        ((race := clean_arg_value(x)) and race != "u") or not has_a_race_cell
                     ):
                         p.race = race
                     if x := tpl.get_arg("link"):
                         p.link = clean_arg_value(x)
+                        if p.link in ("false", "true") or clean_link(p.link) == clean_link(p.name):
+                            p.link = ""
                 elif m := FLAG_TEMPLATE_PATTERN.match(name):
                     p.flag = m.group(1)
                     if c.wikilinks:
@@ -742,7 +744,7 @@ class TournamentConverter:
                 p.dq = True
                 if m := STRIKETHROUGH_PATTERN.match(p.name):
                     p.name = m.group(2)
-                    if p.link == p.name:
+                    if clean_link(p.link) == clean_link(p.name):
                         p.link = ""
             if notes_m := NOTE_PATTERN.findall(val):
                 p.notes = list(chain.from_iterable(n.split(",") for n in notes_m))
